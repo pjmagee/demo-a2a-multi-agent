@@ -64,6 +64,15 @@
       ]
     },
     {
+      "root": "greetings_agent",
+      "venvPath": "greetings_agent",
+      "venv": ".venv",
+      "extraPaths": [
+        "greetings_agent/.venv/Lib/site-packages",
+        "shared"
+      ]
+    },
+    {
       "root": "shared",
       "venvPath": "shared",
       "venv": ".venv",

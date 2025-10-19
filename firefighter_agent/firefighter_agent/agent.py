@@ -15,7 +15,7 @@ from agents import (
     function_tool,
 )
 from agents.memory.session import Session
-from shared.peer_tools import default_peer_tools
+from shared.peer_tools import default_peer_tools, peer_message_context
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 
@@ -54,6 +54,11 @@ class FireFighterAgent:
         @function_tool
         async def dispatch_fire_unit(location: str, severity: str | None = None) -> str:
             """Send a fire response team to the specified location."""
+            logger.info(
+                "Tool dispatch_fire_unit invoked with location=%s severity=%s",
+                location,
+                severity,
+            )
             update: str = choice(self.status_updates)
             details: str = f"Dispatching teams to {location}. {update}"
             if severity:
@@ -63,6 +68,10 @@ class FireFighterAgent:
         @function_tool
         async def evaluate_fire_risk(location: str) -> str:
             """Produce a qualitative fire risk assessment for the location."""
+            logger.info(
+                "Tool evaluate_fire_risk invoked with location=%s",
+                location,
+            )
             risk: str = choice(self.risk_levels)
             return f"The fire risk at {location} is {risk}."
 
@@ -77,17 +86,20 @@ class FireFighterAgent:
         """Invoke the FireFighterAgent with the provided context."""
         user_input: str = context.get_user_input()
         session: Session | None = self._get_or_create_session(context=context)
-
-        result: RunResult = await Runner.run(
-            starting_agent=self.agent,
-            input=user_input,
-            session=session,
+        context_id: str | None = (
+            context.context_id if isinstance(context.context_id, str) else None
         )
+
+        with peer_message_context(context_id):
+            result: RunResult = await Runner.run(
+                starting_agent=self.agent,
+                input=user_input,
+                session=session,
+            )
         response_text: str = result.final_output_as(
             cls=str,
             raise_if_incorrect_type=True,
         )
-        logger.info("Final response: %s", response_text)
         return response_text
 
     def _get_or_create_session(self, context: RequestContext) -> Session | None:

@@ -37,6 +37,10 @@ class GreetingsAgent:
 
         @function_tool
         async def get_weather(location: str) -> str:
+            logger.info(
+                "Tool get_weather invoked with location=%s",
+                location,
+            )
             selection: str = choice(self.options)
             return f"The weather in {location} is {selection}."
 
@@ -57,7 +61,6 @@ class GreetingsAgent:
             cls=str,
             raise_if_incorrect_type=True,
         )
-        logger.info("Final response: %s", response_text)
         return response_text
 
     # https://openai.github.io/openai-agents-python/sessions/

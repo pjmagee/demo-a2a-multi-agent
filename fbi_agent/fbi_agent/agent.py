@@ -7,7 +7,7 @@ from typing import ClassVar
 from a2a.server.agent_execution.context import RequestContext
 from agents import Agent, Runner, RunResult, SQLiteSession, Tool, function_tool
 from agents.memory.session import Session
-from shared.peer_tools import default_peer_tools
+from shared.peer_tools import default_peer_tools, peer_message_context
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 
@@ -53,6 +53,11 @@ class FBIAgent:
             location: str,
             case: str | None = None,
         ) -> str:
+            logger.info(
+                "Tool handle_federal_investigation invoked with location=%s case=%s",
+                location,
+                case,
+            )
             update: str = choice(self.investigation_updates)
             case_text: str = f" Case reference: {case}." if case else ""
             return (
@@ -62,6 +67,10 @@ class FBIAgent:
 
         @function_tool
         async def assess_threat_level(summary: str) -> str:
+            logger.info(
+                "Tool assess_threat_level invoked with summary=%s",
+                summary,
+            )
             update: str = choice(self.threat_updates)
             return f"Analyzed threat summary '{summary}'. {update}"
 
@@ -76,17 +85,20 @@ class FBIAgent:
         """Invoke the FBI agent with the provided context."""
         user_input: str = context.get_user_input()
         session: Session | None = self._get_or_create_session(context=context)
-
-        result: RunResult = await Runner.run(
-            starting_agent=self.agent,
-            input=user_input,
-            session=session,
+        context_id: str | None = (
+            context.context_id if isinstance(context.context_id, str) else None
         )
+
+        with peer_message_context(context_id):
+            result: RunResult = await Runner.run(
+                starting_agent=self.agent,
+                input=user_input,
+                session=session,
+            )
         response_text: str = result.final_output_as(
             cls=str,
             raise_if_incorrect_type=True,
         )
-        logger.info("Final response: %s", response_text)
         return response_text
 
     def _get_or_create_session(self, context: RequestContext) -> Session | None:

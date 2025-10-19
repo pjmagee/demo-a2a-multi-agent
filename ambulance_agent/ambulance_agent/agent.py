@@ -5,9 +5,10 @@ from secrets import choice
 from typing import ClassVar
 
 from a2a.server.agent_execution.context import RequestContext
+from a2a.types import Message
 from agents import Agent, Runner, RunResult, SQLiteSession, Tool, function_tool
 from agents.memory.session import Session
-from shared.peer_tools import default_peer_tools
+from shared.peer_tools import default_peer_tools, peer_message_context
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 
@@ -47,12 +48,20 @@ class AmbulanceAgent:
         @function_tool
         async def provide_field_care(location: str) -> str:
             """Provide field care to a patient at a given location."""
+            logger.info(
+                "Tool provide_field_care invoked with location=%s",
+                location,
+            )
             update: str = choice(self.care_updates)
             return f"Ambulance dispatched to {location}. {update}"
 
         @function_tool
         async def transport_patient(destination: str) -> str:
             """Transport a patient to a given destination."""
+            logger.info(
+                "Tool transport_patient invoked with destination=%s",
+                destination,
+            )
             update: str = choice(self.transport_updates)
             return f"Patient en route to {destination}. {update}"
 
@@ -67,25 +76,28 @@ class AmbulanceAgent:
         """Invoke the AmbulanceAgent."""
         user_input: str = context.get_user_input()
         session: Session | None = self._get_or_create_session(context=context)
-
-        result: RunResult = await Runner.run(
-            starting_agent=self.agent,
-            input=user_input,
-            session=session,
+        context_id: str | None = (
+            context.context_id if isinstance(context.context_id, str) else None
         )
+
+        with peer_message_context(context_id=context_id):
+            result: RunResult = await Runner.run(
+                starting_agent=self.agent,
+                input=user_input,
+                session=session,
+            )
         response_text: str = result.final_output_as(
             cls=str,
             raise_if_incorrect_type=True,
         )
-        logger.info("Final response: %s", response_text)
         return response_text
 
     def _get_or_create_session(self, context: RequestContext) -> Session | None:
         session: Session | None = None
-        if isinstance(context.context_id, str):
-            if context.context_id not in AmbulanceAgent.sessions:
-                AmbulanceAgent.sessions[context.context_id] = SQLiteSession(
-                    session_id=context.context_id,
+        if isinstance(context.message, Message) and context.message.context_id:
+            if context.message.context_id not in AmbulanceAgent.sessions:
+                AmbulanceAgent.sessions[context.message.context_id] = SQLiteSession(
+                    session_id=context.message.context_id,
                 )
-            session = AmbulanceAgent.sessions[context.context_id]
+            session = AmbulanceAgent.sessions[context.message.context_id]
         return session

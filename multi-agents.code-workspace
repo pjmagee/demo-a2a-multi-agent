@@ -228,7 +228,7 @@
       {
         "label": "workspace: uv sync all",
         "type": "shell",
-        "command": "echo Completed uv sync across projects",
+        "command": "echo 'Completed uv sync across projects'",
         "dependsOrder": "sequence",
         "dependsOn": [
           "firefighter_agent: uv sync",
@@ -237,8 +237,8 @@
           "ambulance_agent: uv sync",
           "weather_agent: uv sync",
           "operator_911_agent: uv sync",
-          "tester_agent: uv sync",
           "greetings_agent: uv sync",
+          "tester_agent: uv sync",
           "shared: uv sync"
         ]
       }

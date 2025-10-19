@@ -7,7 +7,7 @@ from typing import ClassVar
 from a2a.server.agent_execution.context import RequestContext
 from agents import Agent, Runner, RunResult, SQLiteSession, Tool
 from agents.memory.session import Session
-from shared.peer_tools import default_peer_tools
+from shared.peer_tools import default_peer_tools, peer_message_context
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 
@@ -44,17 +44,20 @@ class Operator911Agent:
         """Process the caller interaction and return the model response."""
         user_input: str = context.get_user_input()
         session: Session | None = self._get_or_create_session(context=context)
-
-        result: RunResult = await Runner.run(
-            starting_agent=self.agent,
-            input=user_input,
-            session=session,
+        context_id: str | None = (
+            context.context_id if isinstance(context.context_id, str) else None
         )
+
+        with peer_message_context(context_id):
+            result: RunResult = await Runner.run(
+                starting_agent=self.agent,
+                input=user_input,
+                session=session,
+            )
         response_text: str = result.final_output_as(
             cls=str,
             raise_if_incorrect_type=True,
         )
-        logger.info("Final response: %s", response_text)
         return response_text
 
     def _get_or_create_session(self, context: RequestContext) -> Session | None:

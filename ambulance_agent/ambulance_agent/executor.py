@@ -24,8 +24,17 @@ class AmbulanceAgentExecutor(AgentExecutor):
     @override
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         response_text: str = await self.ambulance_agent.invoke(context=context)
-        logger.info("Agent response: %s", response_text)
-        await event_queue.enqueue_event(event=new_agent_text_message(text=response_text))
+        context_id: str | None = (
+            context.context_id if isinstance(context.context_id, str) else None
+        )
+        logger.info(
+            "Executor sending response context_id=%s text=%s",
+            context_id,
+            response_text,
+        )
+        await event_queue.enqueue_event(
+            event=new_agent_text_message(text=response_text),
+        )
 
     @override
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
