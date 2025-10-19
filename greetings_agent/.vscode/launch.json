@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Greetings Agent",
+      "consoleName": "Greetings Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "greetings_agent.app",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Greetings Agent REPL",
+      "consoleName": "Greetings Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "greetings_agent.repl",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal"
+    }
+  ]
+}

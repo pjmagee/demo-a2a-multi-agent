@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Tester Agent",
+      "consoleName": "Tester Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "tester_agent.app",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Tester Agent REPL",
+      "consoleName": "Tester Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "tester_agent.repl",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true,
+      "console": "integratedTerminal"
+    }
+  ]
+}

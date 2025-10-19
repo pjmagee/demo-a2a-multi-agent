@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "911 Operator Agent",
+      "consoleName": "911 Operator Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "operator_911_agent.app",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "911 Operator Agent REPL",
+      "consoleName": "911 Operator Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "operator_911_agent.repl",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

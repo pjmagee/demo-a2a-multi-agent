@@ -1,0 +1,224 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Firefighter Agent",
+      "consoleName": "Firefighter Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "firefighter_agent.app",
+      "cwd": "${workspaceFolder:firefighter_agent}",
+      "python": "${workspaceFolder:firefighter_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:firefighter_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Firefighter Agent REPL",
+      "consoleName": "Firefighter Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "firefighter_agent.repl",
+      "cwd": "${workspaceFolder:firefighter_agent}",
+      "python": "${workspaceFolder:firefighter_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:firefighter_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Police Agent",
+      "consoleName": "Police Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "police_agent.app",
+      "cwd": "${workspaceFolder:police_agent}",
+      "python": "${workspaceFolder:police_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:police_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Police Agent REPL",
+      "consoleName": "Police Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "police_agent.repl",
+      "cwd": "${workspaceFolder:police_agent}",
+      "python": "${workspaceFolder:police_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:police_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "FBI Agent",
+      "consoleName": "FBI Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "fbi_agent.app",
+      "cwd": "${workspaceFolder:fbi_agent}",
+      "python": "${workspaceFolder:fbi_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:fbi_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "FBI Agent REPL",
+      "consoleName": "FBI Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "fbi_agent.repl",
+      "cwd": "${workspaceFolder:fbi_agent}",
+      "python": "${workspaceFolder:fbi_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:fbi_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Ambulance Agent",
+      "consoleName": "Ambulance Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ambulance_agent.app",
+      "cwd": "${workspaceFolder:ambulance_agent}",
+      "python": "${workspaceFolder:ambulance_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:ambulance_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Ambulance Agent REPL",
+      "consoleName": "Ambulance Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ambulance_agent.repl",
+      "cwd": "${workspaceFolder:ambulance_agent}",
+      "python": "${workspaceFolder:ambulance_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:ambulance_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Weather Agent",
+      "consoleName": "Weather Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "weather_agent.app",
+      "cwd": "${workspaceFolder:weather_agent}",
+      "python": "${workspaceFolder:weather_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:weather_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Weather Agent REPL",
+      "consoleName": "Weather Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "weather_agent.repl",
+      "cwd": "${workspaceFolder:weather_agent}",
+      "python": "${workspaceFolder:weather_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:weather_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "911 Operator Agent",
+      "consoleName": "911 Operator Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "operator_911_agent.app",
+      "cwd": "${workspaceFolder:operator_911_agent}",
+      "python": "${workspaceFolder:operator_911_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:operator_911_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "911 Operator Agent REPL",
+      "consoleName": "911 Operator Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "operator_911_agent.repl",
+      "cwd": "${workspaceFolder:operator_911_agent}",
+      "python": "${workspaceFolder:operator_911_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:operator_911_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Greetings Agent",
+      "consoleName": "Greetings Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "greetings_agent.app",
+      "cwd": "${workspaceFolder:greetings_agent}",
+      "python": "${workspaceFolder:greetings_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:greetings_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Greetings Agent REPL",
+      "consoleName": "Greetings Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "greetings_agent.repl",
+      "cwd": "${workspaceFolder:greetings_agent}",
+      "python": "${workspaceFolder:greetings_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:greetings_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Tester Agent",
+      "consoleName": "Tester Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "tester_agent.repl",
+      "cwd": "${workspaceFolder:tester_agent}",
+      "python": "${workspaceFolder:tester_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:tester_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Tester Agent Script",
+      "consoleName": "Tester Agent Script",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "tester_agent.run_tests",
+      "cwd": "${workspaceFolder:tester_agent}",
+      "python": "${workspaceFolder:tester_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:tester_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Launch All Agents",
+      "configurations": [
+        "Firefighter Agent",
+        "Police Agent",
+        "FBI Agent",
+        "Ambulance Agent",
+        "Weather Agent",
+        "911 Operator Agent",
+        "Greetings Agent"
+      ]
+    },
+    {
+      "name": "Launch Agents and Tester",
+      "configurations": [
+        "Firefighter Agent",
+        "Police Agent",
+        "FBI Agent",
+        "Ambulance Agent",
+        "Weather Agent",
+        "911 Operator Agent",
+        "Greetings Agent",
+        "Tester Agent"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Weather Agent",
+      "consoleName": "Weather Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "weather_agent.app",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Weather Agent REPL",
+      "consoleName": "Weather Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "weather_agent.repl",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

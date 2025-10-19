@@ -1,0 +1,247 @@
+{
+  "folders": [
+    {
+      "name": "firefighter_agent",
+      "path": "firefighter_agent"
+    },
+    {
+      "name": "police_agent",
+      "path": "police_agent"
+    },
+    {
+      "name": "fbi_agent",
+      "path": "fbi_agent"
+    },
+    {
+      "name": "ambulance_agent",
+      "path": "ambulance_agent"
+    },
+    {
+      "name": "weather_agent",
+      "path": "weather_agent"
+    },
+    {
+      "name": "operator_911_agent",
+      "path": "operator_911_agent"
+    },
+    {
+      "name": "tester_agent",
+      "path": "tester_agent"
+    },
+    {
+      "name": "greetings_agent",
+      "path": "greetings_agent"
+    },
+    {
+      "name": "shared",
+      "path": "shared"
+    },
+    {
+      "name": "monorepo",
+      "path": "."
+    }
+  ],
+  "extensions": {
+    "recommendations": [
+      "charliermarsh.ruff",
+      "ms-python.python",
+    ]
+  },
+  "settings": {
+    "github.copilot.chat.agent.autoFix": true,
+    "github.copilot.chat.agent.currentEditorContext.enabled": true,
+    "github.copilot.chat.agent.thinkingTool": true,
+    "github.copilot.chat.summarizeAgentConversationHistory.enabled": true,
+    // Experimental Python settings
+    "python.experiments.enabled": true,
+    "python.analysis.typeEvaluation.enableExperimentalFeatures": true,
+    "python.analysis.typeEvaluation.disableBytesTypePromotions": false,
+    "python.analysis.typeEvaluation.strictDictionaryInference": true,
+    "python.analysis.typeEvaluation.strictParameterNoneValue": true,
+    // We use default Pylance part of Python Extension
+    "python.analysis.diagnosticsSource": "Pylance",
+    "python.analysis.diagnosticMode": "workspace",
+    "python.analysis.fixAll": [
+      "source.convertImportFormat",
+      "source.unusedImports"
+    ],
+    "python.analysis.typeEvaluation.strictSetInference": true,
+    "python.analysis.typeEvaluation.strictListInference": true,
+    "python.analysis.autoSearchPaths": true,
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.autoIndent": true,
+    "python.analysis.generateWithTypeAnnotation": true,
+    "python.analysis.languageServerMode": "full",
+    "python.analysis.typeCheckingMode": "strict",
+    "python.analysis.useLibraryCodeForTypes": true,
+    "python.analysis.autoFormatStrings": true,
+    "python.analysis.enableColorPicker": true,
+    "python.analysis.disableTaggedHints": false,
+    "python.analysis.typeEvaluation.deprecateTypingAliases": true,
+    "python.analysis.gotoDefinitionInStringLiteral": true,
+    "python.analysis.showOnlyDirectDependenciesInAutoImport": false,
+    "python.globalModuleInstallation": false,
+    "ruff.enable": true,
+    "ruff.fixAll": true,
+    "ruff.showSyntaxErrors": true,
+    "ruff.lint.enable": true,
+    "ruff.codeAction.fixViolation": {
+      "enable": true
+    },
+    // Hints
+    "python.analysis.inlayHints.functionReturnTypes": true,
+    "python.analysis.inlayHints.variableTypes": true,
+    "python.analysis.inlayHints.pytestParameters": true,
+    "python.analysis.inlayHints.callArgumentNames": "all",
+    // Disable Python Environments extension (We use uv to manage venv)
+    "python.useEnvironmentsExtension": false,
+    "python-envs.defaultEnvManager": "ms-python.python:venv",
+    "python-envs.pythonProjects": [],
+    // Copilot
+    "python.analysis.aiHoverSummaries": true,
+    "python.analysis.aiCodeActions": {
+      "implementAbstractClasses": true,
+      "generateSymbol": true,
+      "convertFormatString": true
+    },
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "firefighter_agent: uv sync",
+        "type": "shell",
+        "command": "uv",
+        "args": [
+          "sync",
+          "--group",
+          "dev"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}/firefighter_agent"
+        }
+      },
+      {
+        "label": "police_agent: uv sync",
+        "type": "shell",
+        "command": "uv",
+        "args": [
+          "sync",
+          "--group",
+          "dev"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}/police_agent"
+        }
+      },
+      {
+        "label": "fbi_agent: uv sync",
+        "type": "shell",
+        "command": "uv",
+        "args": [
+          "sync",
+          "--group",
+          "dev"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}/fbi_agent"
+        }
+      },
+      {
+        "label": "ambulance_agent: uv sync",
+        "type": "shell",
+        "command": "uv",
+        "args": [
+          "sync",
+          "--group",
+          "dev"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}/ambulance_agent"
+        }
+      },
+      {
+        "label": "weather_agent: uv sync",
+        "type": "shell",
+        "command": "uv",
+        "args": [
+          "sync",
+          "--group",
+          "dev"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}/weather_agent"
+        }
+      },
+      {
+        "label": "operator_911_agent: uv sync",
+        "type": "shell",
+        "command": "uv",
+        "args": [
+          "sync",
+          "--group",
+          "dev"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}/operator_911_agent"
+        }
+      },
+      {
+        "label": "tester_agent: uv sync",
+        "type": "shell",
+        "command": "uv",
+        "args": [
+          "sync",
+          "--group",
+          "dev"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}/tester_agent"
+        }
+      },
+      {
+        "label": "greetings_agent: uv sync",
+        "type": "shell",
+        "command": "uv",
+        "args": [
+          "sync",
+          "--group",
+          "dev"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}/greetings_agent"
+        }
+      },
+      {
+        "label": "shared: uv sync",
+        "type": "shell",
+        "command": "uv",
+        "args": [
+          "sync",
+          "--group",
+          "dev"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}/shared"
+        }
+      },
+      {
+        "label": "workspace: uv sync all",
+        "type": "shell",
+        "command": "echo Completed uv sync across projects",
+        "dependsOrder": "sequence",
+        "dependsOn": [
+          "firefighter_agent: uv sync",
+          "police_agent: uv sync",
+          "fbi_agent: uv sync",
+          "ambulance_agent: uv sync",
+          "weather_agent: uv sync",
+          "operator_911_agent: uv sync",
+          "tester_agent: uv sync",
+          "greetings_agent: uv sync",
+          "shared: uv sync"
+        ]
+      }
+    ]
+  }
+}

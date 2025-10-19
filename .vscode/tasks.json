@@ -1,0 +1,139 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "firefighter_agent: uv sync",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "sync",
+        "--group",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/firefighter_agent"
+      }
+    },
+    {
+      "label": "police_agent: uv sync",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "sync",
+        "--group",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/police_agent"
+      }
+    },
+    {
+      "label": "fbi_agent: uv sync",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "sync",
+        "--group",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/fbi_agent"
+      }
+    },
+    {
+      "label": "ambulance_agent: uv sync",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "sync",
+        "--group",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/ambulance_agent"
+      }
+    },
+    {
+      "label": "weather_agent: uv sync",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "sync",
+        "--group",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/weather_agent"
+      }
+    },
+    {
+      "label": "operator_911_agent: uv sync",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "sync",
+        "--group",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/operator_911_agent"
+      }
+    },
+    {
+      "label": "tester_agent: uv sync",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "sync",
+        "--group",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/tester_agent"
+      }
+    },
+    {
+      "label": "greetings_agent: uv sync",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "sync",
+        "--group",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/greetings_agent"
+      }
+    },
+    {
+      "label": "shared: uv sync",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "sync",
+        "--group",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/shared"
+      }
+    },
+    {
+      "label": "workspace: uv sync all",
+      "type": "shell",
+      "command": "echo Completed uv sync across projects",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "firefighter_agent: uv sync",
+        "police_agent: uv sync",
+        "fbi_agent: uv sync",
+        "ambulance_agent: uv sync",
+        "weather_agent: uv sync",
+        "operator_911_agent: uv sync",
+        "tester_agent: uv sync",
+        "greetings_agent: uv sync",
+        "shared: uv sync"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Police Agent",
+      "consoleName": "Police Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "police_agent.app",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",      
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Police Agent REPL",
+      "consoleName": "Police Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "police_agent.repl",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

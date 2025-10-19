@@ -1,0 +1,75 @@
+{
+  "executionEnvironments": [
+    {
+      "root": "firefighter_agent",
+      "venvPath": "firefighter_agent",
+      "venv": ".venv",
+      "extraPaths": [
+        "firefighter_agent/.venv/Lib/site-packages",
+        "shared"
+      ]
+    },
+    {
+      "root": "police_agent",
+      "venvPath": "police_agent",
+      "venv": ".venv",
+      "extraPaths": [
+        "police_agent/.venv/Lib/site-packages",
+        "shared"
+      ]
+    },
+    {
+      "root": "fbi_agent",
+      "venvPath": "fbi_agent",
+      "venv": ".venv",
+      "extraPaths": [
+        "fbi_agent/.venv/Lib/site-packages",
+        "shared"
+      ]
+    },
+    {
+      "root": "ambulance_agent",
+      "venvPath": "ambulance_agent",
+      "venv": ".venv",
+      "extraPaths": [
+        "ambulance_agent/.venv/Lib/site-packages",
+        "shared"
+      ]
+    },
+    {
+      "root": "weather_agent",
+      "venvPath": "weather_agent",
+      "venv": ".venv",
+      "extraPaths": [
+        "weather_agent/.venv/Lib/site-packages",
+        "shared"
+      ]
+    },
+    {
+      "root": "operator_911_agent",
+      "venvPath": "operator_911_agent",
+      "venv": ".venv",
+      "extraPaths": [
+        "operator_911_agent/.venv/Lib/site-packages",
+        "shared"
+      ]
+    },
+    {
+      "root": "tester_agent",
+      "venvPath": "tester_agent",
+      "venv": ".venv",
+      "extraPaths": [
+        "tester_agent/.venv/Lib/site-packages",
+        "shared"
+      ]
+    },
+    {
+      "root": "shared",
+      "venvPath": "shared",
+      "venv": ".venv",
+      "extraPaths": [
+        "shared/.venv/Lib/site-packages"
+      ]
+    }
+  ]
+}

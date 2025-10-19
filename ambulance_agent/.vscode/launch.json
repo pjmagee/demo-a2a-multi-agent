@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Ambulance Agent",
+      "consoleName": "Ambulance Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ambulance_agent.app",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Ambulance Agent REPL",
+      "consoleName": "Ambulance Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ambulance_agent.repl",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}
