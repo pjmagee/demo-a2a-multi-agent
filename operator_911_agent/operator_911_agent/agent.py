@@ -48,7 +48,7 @@ class Operator911Agent:
             context.context_id if isinstance(context.context_id, str) else None
         )
 
-        with peer_message_context(context_id):
+        with peer_message_context(context_id=context_id):
             result: RunResult = await Runner.run(
                 starting_agent=self.agent,
                 input=user_input,

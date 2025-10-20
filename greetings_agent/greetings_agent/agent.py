@@ -57,6 +57,7 @@ class GreetingsAgent:
             # https://openai.github.io/openai-agents-python/sessions/
             session=session,
         )
+
         response_text: str = result.final_output_as(
             cls=str,
             raise_if_incorrect_type=True,

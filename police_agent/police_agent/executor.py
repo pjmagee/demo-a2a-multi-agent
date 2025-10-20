@@ -32,7 +32,11 @@ class PoliceAgentExecutor(AgentExecutor):
             response_text,
         )
         await event_queue.enqueue_event(
-            event=new_agent_text_message(text=response_text),
+             event=new_agent_text_message(
+                context_id=context_id,
+                text=response_text,
+                task_id=context.task_id,
+            ),
         )
 
     @override

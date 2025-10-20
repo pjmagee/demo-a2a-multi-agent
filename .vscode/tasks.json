@@ -124,6 +124,7 @@
       "command": "echo Completed uv sync across projects",
       "dependsOrder": "sequence",
       "dependsOn": [
+        "shared: uv sync",
         "firefighter_agent: uv sync",
         "police_agent: uv sync",
         "fbi_agent: uv sync",
@@ -132,7 +133,6 @@
         "operator_911_agent: uv sync",
         "tester_agent: uv sync",
         "greetings_agent: uv sync",
-        "shared: uv sync"
       ]
     }
   ]
