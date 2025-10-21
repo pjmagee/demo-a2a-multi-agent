@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Counter Agent",
+      "consoleName": "Counter Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "counter_agent.app",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Counter Agent DevUI",
+      "consoleName": "Counter Agent DevUI",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "counter_agent.in_memory_mode",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

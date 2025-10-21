@@ -1,0 +1,39 @@
+[project]
+name = "counter-agent"
+version = "0.1.0"
+description = "Counter A2A Agent using Microsoft agent-framework"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "a2a-sdk[all]",
+  "agent-framework-core",
+  "agent-framework-devui",
+  "fastapi",
+  "uvicorn",
+  "httpx",
+  "shared",
+]
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+shared = { path = "../shared", editable = true }
+
+[dependency-groups]
+dev = [
+  "ruff",
+]
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "CPY",
+  "D417",
+  "D418",
+  "D419",
+  "DOC",
+]
