@@ -6,8 +6,9 @@ from random import SystemRandom
 from typing import ClassVar
 
 from a2a.server.agent_execution.context import RequestContext
-from agents import Agent, Runner, RunResult, SQLiteSession, Tool, function_tool
+from agents import Agent, Runner, RunResult, Tool, function_tool
 from agents.memory.session import Session
+from shared.openai_session_helpers import get_or_create_session
 from shared.peer_tools import default_peer_tools, peer_message_context
 
 logger: logging.Logger = logging.getLogger(name=__name__)
@@ -78,12 +79,21 @@ class WeatherAgent:
             *peer_tools,
         ]
 
-    async def invoke(self, context: RequestContext) -> str:
-        """Invoke the WeatherAgent with the provided context."""
+    async def invoke(self, context: RequestContext, context_id: str) -> str:
+        """Invoke the WeatherAgent with the provided context.
+
+        Args:
+            context: Request context containing user input
+            context_id: Guaranteed non-null context ID (created by executor)
+
+        Returns:
+            Agent response text
+
+        """
         user_input: str = context.get_user_input()
-        session: Session | None = self._get_or_create_session(context=context)
-        context_id: str | None = (
-            context.context_id if isinstance(context.context_id, str) else None
+        session: Session = get_or_create_session(
+            sessions=WeatherAgent.sessions,
+            context_id=context_id,
         )
 
         with peer_message_context(context_id=context_id):
@@ -97,13 +107,3 @@ class WeatherAgent:
             raise_if_incorrect_type=True,
         )
         return response_text
-
-    def _get_or_create_session(self, context: RequestContext) -> Session | None:
-        session: Session | None = None
-        if isinstance(context.context_id, str):
-            if context.context_id not in WeatherAgent.sessions:
-                WeatherAgent.sessions[context.context_id] = SQLiteSession(
-                    session_id=context.context_id,
-                )
-            session = WeatherAgent.sessions[context.context_id]
-        return session

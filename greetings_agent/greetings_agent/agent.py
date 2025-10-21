@@ -6,8 +6,9 @@ from secrets import choice
 from typing import ClassVar
 
 from a2a.server.agent_execution.context import RequestContext
-from agents import Agent, Runner, RunResult, SQLiteSession, Tool, function_tool
+from agents import Agent, Runner, RunResult, Tool, function_tool
 from agents.memory.session import Session
+from shared.openai_session_helpers import get_or_create_session
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 
@@ -46,15 +47,26 @@ class GreetingsAgent:
 
         return [get_weather]
 
-    async def invoke(self, context: RequestContext) -> str:
-        """Execute the agent for the provided request context."""
+    async def invoke(self, context: RequestContext, context_id: str) -> str:
+        """Execute the agent for the provided request context.
+
+        Args:
+            context: Request context containing user input
+            context_id: Guaranteed non-null context ID (created by executor)
+
+        Returns:
+            Agent response text
+
+        """
         user_input: str = context.get_user_input()
-        session: Session | None = self._get_or_create_session(context=context)
+        session: Session = get_or_create_session(
+            sessions=GreetingsAgent.sessions,
+            context_id=context_id,
+        )
 
         result: RunResult = await Runner.run(
             starting_agent=self.agent,
             input=user_input,
-            # https://openai.github.io/openai-agents-python/sessions/
             session=session,
         )
 
@@ -63,14 +75,3 @@ class GreetingsAgent:
             raise_if_incorrect_type=True,
         )
         return response_text
-
-    # https://openai.github.io/openai-agents-python/sessions/
-    def _get_or_create_session(self, context: RequestContext) -> Session | None:
-        session: Session | None = None
-        if isinstance(context.context_id, str):
-            if context.context_id not in GreetingsAgent.sessions:
-                GreetingsAgent.sessions[context.context_id] = SQLiteSession(
-                    session_id=context.context_id,
-                )
-            session = GreetingsAgent.sessions[context.context_id]
-        return session

@@ -13,7 +13,6 @@ from a2a.client import A2ACardResolver, A2AClient
 from a2a.types import (
     AgentCard,
     Message,
-    MessageSendConfiguration,
     MessageSendParams,
     Part,
     Role,
@@ -54,9 +53,9 @@ def _filter_self_address(addresses: list[str]) -> list[str]:
         if _normalize_url(url=address) != normalized_base
     ]
 
-
 def load_peer_addresses(env_var: str = "PEER_AGENT_ADDRESSES") -> list[str]:
     """Return the configured peer agent addresses from the environment."""
+
     raw_value: str = os.getenv(key=env_var, default="")
     addresses: list[str] = [
         value.strip()

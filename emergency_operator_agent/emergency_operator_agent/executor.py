@@ -7,6 +7,7 @@ from a2a.server.agent_execution import AgentExecutor
 from a2a.server.agent_execution.context import RequestContext
 from a2a.server.events.event_queue import EventQueue
 from a2a.utils import new_agent_text_message
+from shared.openai_session_helpers import ensure_context_id
 
 from emergency_operator_agent.agent import Operator911Agent
 
@@ -21,10 +22,15 @@ class Operator911AgentExecutor(AgentExecutor):
 
     @override
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
-        response_text: str = await self.agent.invoke(context=context)
-        context_id: str | None = (
-            context.context_id if isinstance(context.context_id, str) else None
+        # Ensure context_id exists (A2A protocol: server creates if not provided)
+        context_id: str = ensure_context_id(context=context)
+
+        # Invoke agent with guaranteed context_id
+        response_text: str = await self.agent.invoke(
+            context=context,
+            context_id=context_id,
         )
+
         logger.info(
             "Executor sending response context_id=%s text=%s",
             context_id,

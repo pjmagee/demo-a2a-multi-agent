@@ -16,13 +16,10 @@ from fastapi import FastAPI
 
 from police_agent.agent_card import build_agent_card
 from police_agent.executor import PoliceAgentExecutor
-from shared import configure_logging
 
 PORT = int(os.getenv(key="PORT", default="8012"))
 HOST: str = os.getenv(key="HOST", default="127.0.0.1")
 BASE_URL: str = os.getenv(key="BASE_URL", default=f"http://{HOST}:{PORT}")
-
-configure_logging()
 
 
 def _create_application() -> FastAPI:

@@ -4,8 +4,9 @@ import logging
 from typing import ClassVar
 
 from a2a.server.agent_execution.context import RequestContext
-from agents import Agent, Runner, RunResult, SQLiteSession, Tool
+from agents import Agent, Runner, RunResult, Tool
 from agents.memory.session import Session
+from shared.openai_session_helpers import get_or_create_session
 from shared.peer_tools import (
     default_peer_tools,
     peer_message_context,
@@ -40,13 +41,23 @@ class TesterAgent:
         create_new_session_tool = session_management_tool()
         return [create_new_session_tool, *peer_tools]
 
-    async def invoke(self, context: RequestContext) -> str:
-        """Invoke the Tester agent with the given context and returns the response."""
+    async def invoke(self, context: RequestContext, context_id: str) -> str:
+        """Invoke the Tester agent with the given context and returns the response.
+
+        Args:
+            context: Request context containing user input
+            context_id: Guaranteed non-null context ID (created by executor)
+
+        Returns:
+            Agent response text
+
+        """
         user_input: str = context.get_user_input()
-        session: Session | None = self._get_or_create_session(context=context)
-        context_id: str | None = (
-            context.context_id if isinstance(context.context_id, str) else None
+        session: Session = get_or_create_session(
+            sessions=TesterAgent.sessions,
+            context_id=context_id,
         )
+
         with peer_message_context(context_id):
             response: RunResult = await Runner.run(
                 starting_agent=self.agent,
@@ -58,14 +69,3 @@ class TesterAgent:
             raise_if_incorrect_type=True,
         )
         return response_text
-
-    def _get_or_create_session(self, context: RequestContext) -> Session | None:
-        """Get or create a session for the given context."""
-        session: Session | None = None
-        if isinstance(context.context_id, str):
-            if context.context_id not in TesterAgent.sessions:
-                TesterAgent.sessions[context.context_id] = SQLiteSession(
-                    session_id=context.context_id,
-                )
-            session = TesterAgent.sessions[context.context_id]
-        return session
