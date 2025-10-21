@@ -47,7 +47,7 @@ class PoliceAgent:
         )
 
     def _build_tools(self) -> list[Tool]:
-        list_agents_tool, send_message_tool = default_peer_tools()
+        peer_tools: list[Tool] = default_peer_tools()
 
         @function_tool
         async def deploy_crime_response(location: str) -> str:
@@ -70,8 +70,7 @@ class PoliceAgent:
         return [
             deploy_crime_response,
             manage_traffic_flow,
-            list_agents_tool,
-            send_message_tool,
+            *peer_tools,
         ]
 
     async def invoke(self, context: RequestContext) -> str:

@@ -48,7 +48,7 @@ class WeatherAgent:
         )
 
     def _build_tools(self) -> list[Tool]:
-        list_agents_tool, send_message_tool = default_peer_tools()
+        peer_tools: list[Tool] = default_peer_tools()
 
         @function_tool
         async def get_weather_report(location: str) -> str:
@@ -75,8 +75,7 @@ class WeatherAgent:
         return [
             get_weather_report,
             get_air_quality_report,
-            list_agents_tool,
-            send_message_tool,
+            *peer_tools,
         ]
 
     async def invoke(self, context: RequestContext) -> str:

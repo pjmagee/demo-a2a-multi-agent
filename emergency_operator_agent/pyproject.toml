@@ -1,7 +1,7 @@
 [project]
-name = "tester-agent"
+name = "emergency-operator-agent"
 version = "0.1.0"
-description = "Tester agent for exercising other A2A agents"
+description = "Emergency Operator Orchestrator A2A Agent"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -10,7 +10,7 @@ dependencies = [
   "fastapi",
   "uvicorn",
   "httpx",
-  "shared"
+  "shared",
 ]
 
 [tool.uv]

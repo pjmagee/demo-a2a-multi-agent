@@ -7,7 +7,7 @@ def build_agent_card(base_url: str) -> AgentCard:
     """build_agent_card."""
     return AgentCard(
         name="PoliceAgent",
-        description="Handles local policing tasks, crime investigations, and traffic incidents.",
+        description="Handles policing tasks, crime investigations, and traffic incidents.",
         version="0.1.0",
         preferred_transport="JSONRPC",
         default_input_modes=["text"],

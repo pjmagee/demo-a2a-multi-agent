@@ -278,16 +278,15 @@ def _make_send_message_tool(addresses: tuple[str, ...]) -> Tool:
 
 def build_peer_communication_tools(
     peer_addresses: Sequence[str] | None = None,
-) -> tuple[Tool, Tool]:
+) -> list[Tool]:
     """Construct tools for listing peers and sending messages."""
     addresses = _prepare_addresses(peer_addresses=peer_addresses)
-    return (
-        _make_list_agents_tool(addresses=addresses),
-        _make_send_message_tool(addresses=addresses),
-    )
+    list_agents: Tool = _make_list_agents_tool(addresses=addresses)
+    send_message: Tool = _make_send_message_tool(addresses=addresses)
+    return [list_agents, send_message]
 
 
-def default_peer_tools() -> tuple[Tool, Tool]:
+def default_peer_tools() -> list[Tool]:
     """Return peer communication tools using environment-provided addresses."""
     return build_peer_communication_tools(peer_addresses=None)
 

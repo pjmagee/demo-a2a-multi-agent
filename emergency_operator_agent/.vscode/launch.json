@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Emergency Operator Agent",
+      "consoleName": "Emergency Operator Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "emergency_operator_agent.app",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Emergency Operator Agent REPL",
+      "consoleName": "Emergency Operator Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "emergency_operator_agent.repl",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

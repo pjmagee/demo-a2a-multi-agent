@@ -43,7 +43,7 @@ class AmbulanceAgent:
         )
 
     def _build_tools(self) -> list[Tool]:
-        list_agents_tool, send_message_tool = default_peer_tools()
+        peer_tools: list[Tool] = default_peer_tools()
 
         @function_tool
         async def provide_field_care(location: str) -> str:
@@ -66,10 +66,9 @@ class AmbulanceAgent:
             return f"Patient en route to {destination}. {update}"
 
         return [
+            *peer_tools,
             provide_field_care,
             transport_patient,
-            list_agents_tool,
-            send_message_tool,
         ]
 
     async def invoke(self, context: RequestContext) -> str:

@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Fire Brigade Agent",
+      "consoleName": "Fire Brigade Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "firebrigade_agent.app",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Fire Brigade Agent REPL",
+      "consoleName": "Fire Brigade Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "firebrigade_agent.repl",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

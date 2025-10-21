@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "firefighter_agent: uv sync",
+      "label": "firebrigade_agent: uv sync",
       "type": "shell",
       "command": "uv",
       "args": [
@@ -11,7 +11,7 @@
         "dev"
       ],
       "options": {
-        "cwd": "${workspaceFolder}/firefighter_agent"
+        "cwd": "${workspaceFolder}/firebrigade_agent"
       }
     },
     {
@@ -28,7 +28,7 @@
       }
     },
     {
-      "label": "fbi_agent: uv sync",
+      "label": "mi5_agent: uv sync",
       "type": "shell",
       "command": "uv",
       "args": [
@@ -37,7 +37,7 @@
         "dev"
       ],
       "options": {
-        "cwd": "${workspaceFolder}/fbi_agent"
+        "cwd": "${workspaceFolder}/mi5_agent"
       }
     },
     {
@@ -67,7 +67,7 @@
       }
     },
     {
-      "label": "operator_911_agent: uv sync",
+      "label": "emergency_operator_agent: uv sync",
       "type": "shell",
       "command": "uv",
       "args": [
@@ -76,7 +76,7 @@
         "dev"
       ],
       "options": {
-        "cwd": "${workspaceFolder}/operator_911_agent"
+        "cwd": "${workspaceFolder}/emergency_operator_agent"
       }
     },
     {
@@ -125,12 +125,12 @@
       "dependsOrder": "sequence",
       "dependsOn": [
         "shared: uv sync",
-        "firefighter_agent: uv sync",
+        "firebrigade_agent: uv sync",
         "police_agent: uv sync",
-        "fbi_agent: uv sync",
+        "mi5_agent: uv sync",
         "ambulance_agent: uv sync",
         "weather_agent: uv sync",
-        "operator_911_agent: uv sync",
+        "emergency_operator_agent: uv sync",
         "tester_agent: uv sync",
         "greetings_agent: uv sync",
       ]

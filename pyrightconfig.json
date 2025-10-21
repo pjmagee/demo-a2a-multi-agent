@@ -1,11 +1,11 @@
 {
   "executionEnvironments": [
     {
-      "root": "firefighter_agent",
-      "venvPath": "firefighter_agent",
+      "root": "firebrigade_agent",
+      "venvPath": "firebrigade_agent",
       "venv": ".venv",
       "extraPaths": [
-        "firefighter_agent/.venv/Lib/site-packages",
+        "firebrigade_agent/.venv/Lib/site-packages",
         "shared"
       ]
     },
@@ -19,11 +19,11 @@
       ]
     },
     {
-      "root": "fbi_agent",
-      "venvPath": "fbi_agent",
+      "root": "mi5_agent",
+      "venvPath": "mi5_agent",
       "venv": ".venv",
       "extraPaths": [
-        "fbi_agent/.venv/Lib/site-packages",
+        "mi5_agent/.venv/Lib/site-packages",
         "shared"
       ]
     },
@@ -46,11 +46,11 @@
       ]
     },
     {
-      "root": "operator_911_agent",
-      "venvPath": "operator_911_agent",
+      "root": "emergency_operator_agent",
+      "venvPath": "emergency_operator_agent",
       "venv": ".venv",
       "extraPaths": [
-        "operator_911_agent/.venv/Lib/site-packages",
+        "emergency_operator_agent/.venv/Lib/site-packages",
         "shared"
       ]
     },
