@@ -294,6 +294,37 @@ wheels = [
 ]
 
 [[package]]
+name = "emergency-operator-agent"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "a2a-sdk", extra = ["all"] },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "openai-agents" },
+    { name = "shared" },
+    { name = "uvicorn" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "a2a-sdk", extras = ["all"] },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "openai-agents" },
+    { name = "shared", editable = "../shared" },
+    { name = "uvicorn" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "ruff" }]
+
+[[package]]
 name = "fastapi"
 version = "0.119.0"
 source = { registry = "https://pypi.org/simple" }
@@ -705,37 +736,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/40/bc/8b9ad3802cd8ac658
 wheels = [
     { url = "https://files.pythonhosted.org/packages/24/7d/c88d7b15ba8fe5c6b8f93be50fc11795e9fc05386c44afaf6b76fe191f9b/opentelemetry_semantic_conventions-0.59b0-py3-none-any.whl", hash = "sha256:35d3b8833ef97d614136e253c1da9342b4c3c083bbaf29ce31d572a1c3825eed", size = 207954, upload-time = "2025-10-16T08:35:48.054Z" },
 ]
-
-[[package]]
-name = "operator-911-agent"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "a2a-sdk", extra = ["all"] },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "openai-agents" },
-    { name = "shared" },
-    { name = "uvicorn" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "a2a-sdk", extras = ["all"] },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "openai-agents" },
-    { name = "shared", editable = "../shared" },
-    { name = "uvicorn" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "ruff" }]
 
 [[package]]
 name = "proto-plus"

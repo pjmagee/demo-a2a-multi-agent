@@ -1,15 +1,11 @@
 """Shared utilities for the multi-agent workspace."""
 
-from . import (
-    build_peer_communication_tools,
-    default_peer_tools,
-    load_peer_addresses,
-    openai_session_helpers,
-)
+from shared.openai_session_helpers import ensure_context_id, get_or_create_session
+from shared.peer_tools import default_peer_tools, peer_message_context
 
 __all__: list[str] = [
-    "build_peer_communication_tools",
     "default_peer_tools",
-    "load_peer_addresses",
-    "openai_session_helpers",
+    "ensure_context_id",
+    "get_or_create_session",
+    "peer_message_context"
 ]

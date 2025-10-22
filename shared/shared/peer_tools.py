@@ -275,7 +275,7 @@ def _make_send_message_tool(addresses: tuple[str, ...]) -> Tool:
     return send_message
 
 
-def build_peer_communication_tools(
+def _build_peer_communication_tools(
     peer_addresses: Sequence[str] | None = None,
 ) -> list[Tool]:
     """Construct tools for listing peers and sending messages."""
@@ -287,7 +287,7 @@ def build_peer_communication_tools(
 
 def default_peer_tools() -> list[Tool]:
     """Return peer communication tools using environment-provided addresses."""
-    return build_peer_communication_tools(peer_addresses=None)
+    return _build_peer_communication_tools(peer_addresses=None)
 
 
 def session_management_tool() -> Tool:

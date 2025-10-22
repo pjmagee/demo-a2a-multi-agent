@@ -1,39 +1,39 @@
 {
   "folders": [
     {
-      "name": "Firebrigade Agent",
+      "name": "firebrigade_agent",
       "path": "firebrigade_agent"
     },
     {
-      "name": "Police Agent",
+      "name": "police_agent",
       "path": "police_agent"
     },
     {
-      "name": "MI5 Agent",
+      "name": "mi5_agent",
       "path": "mi5_agent"
     },
     {
-      "name": "Ambulance Agent",
+      "name": "ambulance_agent",
       "path": "ambulance_agent"
     },
     {
-      "name": "Weather Agent",
+      "name": "weather_agent",
       "path": "weather_agent"
     },
     {
-      "name": "Energency Operator Agent",
+      "name": "emergency_operator_agent",
       "path": "emergency_operator_agent"
     },
     {
-      "name": "A2A Tester Agent",
+      "name": "tester_agent",
       "path": "tester_agent"
     },
     {
-      "name": "Greetings Agent",
+      "name": "greetings_agent",
       "path": "greetings_agent"
     },
     {
-      "name": "Counter Agent",
+      "name": "counter_agent",
       "path": "counter_agent"
     },
     {

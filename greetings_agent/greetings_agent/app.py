@@ -8,7 +8,6 @@ from a2a.server.events import InMemoryQueueManager
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks.inmemory_task_store import InMemoryTaskStore
 from fastapi import FastAPI
-from shared import configure_logging  # type: ignore[import-not-found]
 
 from greetings_agent.agent_card import build_agent_card
 from greetings_agent.executor import GreetingsAgentExecutor
@@ -17,7 +16,6 @@ PORT = int(os.getenv(key="PORT", default="8018"))
 HOST: str = os.getenv(key="HOST", default="127.0.0.1")
 BASE_URL: str = os.getenv(key="BASE_URL", default=f"http://{HOST}:{PORT}")
 
-configure_logging()
 
 
 def _create_application() -> FastAPI:
