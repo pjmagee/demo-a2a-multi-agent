@@ -23,7 +23,7 @@ class WeatherAgentExecutor(AgentExecutor):
     @override
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         # Ensure context_id exists (A2A protocol: server creates if not provided)
-        context_id: str = ensure_context_id(context)
+        context_id: str = ensure_context_id(context=context)
 
         # Invoke agent with guaranteed context_id
         response_text: str = await self.agent.invoke(

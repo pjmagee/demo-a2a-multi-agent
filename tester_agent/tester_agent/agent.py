@@ -15,7 +15,6 @@ from shared.peer_tools import (
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 
-
 class TesterAgent:
     """Audits peer A2A agents by invoking their skills through the A2A client."""
 

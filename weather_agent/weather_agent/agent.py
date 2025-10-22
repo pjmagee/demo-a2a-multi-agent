@@ -6,10 +6,19 @@ from random import SystemRandom
 from typing import ClassVar
 
 from a2a.server.agent_execution.context import RequestContext
-from agents import Agent, Runner, RunResult, Tool, function_tool
+from agents import (
+    Agent,
+    InputGuardrailTripwireTriggered,
+    Runner,
+    RunResult,
+    Tool,
+    function_tool,
+)
 from agents.memory.session import Session
 from shared.openai_session_helpers import get_or_create_session
 from shared.peer_tools import default_peer_tools, peer_message_context
+
+from weather_agent.guard_rails import weather_only_guardrail
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 _rng = SystemRandom()
@@ -37,13 +46,14 @@ class WeatherAgent:
 
     def __init__(self) -> None:
         """Initialize the WeatherAgent."""
-        self.agent = Agent(
+        self.agent: Agent[None] = Agent(
             name="Weather Agent",
-            instructions=(
-                "Provide clear, actionable weather and air quality updates"
-                " for any requested location."
-            ),
+            instructions="""
+            Provide clear, actionable weather and air quality updates
+            for any requested location.
+            """,
             handoffs=[],
+            input_guardrails=[weather_only_guardrail],
             tool_use_behavior="run_llm_again",
             tools=self._build_tools(),
         )
@@ -97,13 +107,40 @@ class WeatherAgent:
         )
 
         with peer_message_context(context_id=context_id):
-            result: RunResult = await Runner.run(
-                starting_agent=self.agent,
-                input=user_input,
-                session=session,
-            )
-        response_text: str = result.final_output_as(
-            cls=str,
-            raise_if_incorrect_type=True,
-        )
-        return response_text
+            try:
+                result: RunResult = await Runner.run(
+                    starting_agent=self.agent,
+                    input=user_input,
+                    session=session,
+                )
+                response_text: str = result.final_output_as(
+                    cls=str,
+                    raise_if_incorrect_type=True,
+                )
+                return response_text
+
+            except InputGuardrailTripwireTriggered as ex:
+                logger.warning("Guardrail tripwire triggered")
+                result = await Runner.run(
+                        starting_agent=Agent(
+                            name="Guard",
+                            instructions=f"""
+                                The guard rails agent tripwire triggered.
+                                Notify the user you cannot continue with their original request:
+
+                                User Input:
+                                ----------
+                                {user_input}
+
+                                Guard rails exception:
+                                ---------------------
+                                {ex!s}
+
+
+                                """,
+                        ),
+                        input="Generate a user friendly response based on the instructions",
+                    )
+                return result.final_output_as(
+                    cls=str,
+                    raise_if_incorrect_type=True)

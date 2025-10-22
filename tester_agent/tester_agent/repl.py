@@ -9,7 +9,10 @@ from tester_agent.agent import TesterAgent
 
 async def _async_main() -> None:
     tester_agent = TesterAgent()
-    await run_demo_loop(agent=tester_agent.agent)
+    await run_demo_loop(
+        agent=tester_agent.agent,
+        stream=True,
+    )
 
 
 def main() -> None:

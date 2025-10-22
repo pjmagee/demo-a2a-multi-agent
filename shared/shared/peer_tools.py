@@ -20,7 +20,7 @@ from a2a.types import (
     SendMessageResponse,
     TextPart,
 )
-from agents import Tool, function_tool
+from agents import FunctionTool, Tool, function_tool
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 
@@ -145,7 +145,8 @@ def _current_context_id() -> str | None:
     return _manual_context_id()
 
 
-def _make_session_management_tool() -> Tool:
+def _make_session_management_tool() -> FunctionTool:
+
     @function_tool
     async def create_new_session(
         action: str | None = None,
@@ -181,8 +182,30 @@ def _make_session_management_tool() -> Tool:
 
     return create_new_session
 
+def _build_send_message_request(message: str, context_id: str | None) -> SendMessageRequest:
+    return SendMessageRequest(
+        id=uuid4().hex,
+        jsonrpc="2.0",
+        method="message/send",
+        params=MessageSendParams(
+            message=Message(
+                context_id=context_id,
+                role=Role.user,
+                message_id=uuid4().hex,
+                parts=[
+                    Part(
+                        root=TextPart(
+                            kind="text",
+                            text=message,
+                        ),
+                    ),
+                ],
+            ),
+        ),
+    )
 
-def _make_send_message_tool(addresses: tuple[str, ...]) -> Tool:
+def _make_send_message_tool(addresses: tuple[str, ...]) -> FunctionTool:
+
     @function_tool
     async def send_message(
         agent_name: str,
@@ -227,33 +250,13 @@ def _make_send_message_tool(addresses: tuple[str, ...]) -> Tool:
                         context_identifier,
                         message,
                     )
-                    send_message_request = SendMessageRequest(
-                        id=str(object=uuid4()),
-                        jsonrpc="2.0",
-                        method="message/send",
-                        params=MessageSendParams(
-                            message=Message(
-                                context_id=context_identifier,
-                                role=Role.user,
-                                message_id=uuid4().hex,
-                                parts=[
-                                    Part(
-                                        root=TextPart(
-                                            kind="text",
-                                            text=message,
-                                        ),
-                                    ),
-                                ],
-                            ),
-                        ),
-                    )
-                    client = A2AClient(
-                        httpx_client=httpx_client,
-                        agent_card=agent_card,
-                    )
+                    client = A2AClient(httpx_client=httpx_client, agent_card=agent_card)
                     try:
                         response: SendMessageResponse = await client.send_message(
-                            request=send_message_request,
+                            request=_build_send_message_request(
+                                message=message,
+                                context_id=context_identifier,
+                            ),
                         )
                     except Exception as exc:
                         logger.debug(

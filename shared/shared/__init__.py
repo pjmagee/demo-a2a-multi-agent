@@ -7,5 +7,5 @@ __all__: list[str] = [
     "default_peer_tools",
     "ensure_context_id",
     "get_or_create_session",
-    "peer_message_context"
+    "peer_message_context",
 ]
