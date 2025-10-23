@@ -2,45 +2,28 @@
 
 
 import logging
-from random import SystemRandom
 from typing import ClassVar
 
 from a2a.server.agent_execution.context import RequestContext
 from agents import (
     Agent,
     InputGuardrailTripwireTriggered,
+    ModelSettings,
     Runner,
     RunResult,
     Tool,
-    function_tool,
 )
 from agents.memory.session import Session
 from shared.openai_session_helpers import get_or_create_session
-from shared.peer_tools import default_peer_tools, peer_message_context
+from shared.peer_tools import peer_message_context
 
 from weather_agent.guard_rails import weather_only_guardrail
+from weather_agent.tools import get_air_quality_report, get_weather_report
 
 logger: logging.Logger = logging.getLogger(name=__name__)
-_rng = SystemRandom()
-
 
 class WeatherAgent:
     """Produces weather and air quality responses."""
-
-    weather_conditions: ClassVar[tuple[str, ...]] = (
-        "sunny",
-        "cloudy",
-        "rainy",
-        "stormy",
-        "snowy",
-    )
-
-    air_quality_descriptions: ClassVar[tuple[str, ...]] = (
-        "Good",
-        "Moderate",
-        "Unhealthy for Sensitive Groups",
-        "Unhealthy",
-    )
 
     sessions: ClassVar[dict[str, Session]] = {}
 
@@ -49,44 +32,22 @@ class WeatherAgent:
         self.agent: Agent[None] = Agent(
             name="Weather Agent",
             instructions="""
-            Provide clear, actionable weather and air quality updates
-            for any requested location.
+            Provide clear, actionable weather and air quality updates by using the provided tools.
             """,
             handoffs=[],
             input_guardrails=[weather_only_guardrail],
             tool_use_behavior="run_llm_again",
             tools=self._build_tools(),
+            model_settings=ModelSettings(tool_choice="required"),
         )
 
     def _build_tools(self) -> list[Tool]:
-        peer_tools: list[Tool] = default_peer_tools()
 
-        @function_tool
-        async def get_weather_report(location: str) -> str:
-            """Report weather for the given location."""
-            logger.info(
-                "Tool get_weather_report invoked with location=%s",
-                location,
-            )
-            temperature: int = _rng.randint(-10, 40)
-            condition: str = _rng.choice(self.weather_conditions)
-            return f"Weather in {location}: {condition} with {temperature}°C."
-
-        @function_tool
-        async def get_air_quality_report(location: str) -> str:
-            """Report air quality for the given location."""
-            logger.info(
-                "Tool get_air_quality_report invoked with location=%s",
-                location,
-            )
-            aqi: int = _rng.randint(10, 150)
-            descriptor: str = _rng.choice(self.air_quality_descriptions)
-            return f"Air quality in {location}: AQI {aqi} ({descriptor})."
+        # peer_tools: list[Tool] = default_peer_tools()  # noqa: ERA001
 
         return [
             get_weather_report,
             get_air_quality_report,
-            *peer_tools,
         ]
 
     async def invoke(self, context: RequestContext, context_id: str) -> str:
@@ -121,26 +82,32 @@ class WeatherAgent:
 
             except InputGuardrailTripwireTriggered as ex:
                 logger.warning("Guardrail tripwire triggered")
-                result = await Runner.run(
-                        starting_agent=Agent(
-                            name="Guard",
-                            instructions=f"""
-                                The guard rails agent tripwire triggered.
-                                Notify the user you cannot continue with their original request:
+                return await self._create_tripwire_response(user_input=user_input, ex=ex)
 
-                                User Input:
-                                ----------
-                                {user_input}
+    async def _create_tripwire_response(
+            self,
+            user_input: str,
+            ex: InputGuardrailTripwireTriggered) -> str:
 
-                                Guard rails exception:
-                                ---------------------
-                                {ex!s}
+        result: RunResult = await Runner.run(
+            starting_agent=Agent(
+                name="Guard",
+                instructions=f"""
+                    The guard rails agent tripwire triggered.
+                    Notify the user you cannot continue with their original request:
 
+                    User Input:
+                    ----------
+                    {user_input}
 
-                                """,
-                        ),
-                        input="Generate a user friendly response based on the instructions",
-                    )
-                return result.final_output_as(
-                    cls=str,
-                    raise_if_incorrect_type=True)
+                    Guard rails exception:
+                    ---------------------
+                    {ex!s}
+                    """,
+            ),
+            input="Generate a user friendly response based on the instructions.",
+        )
+        return result.final_output_as(
+            cls=str,
+            raise_if_incorrect_type=True,
+        )

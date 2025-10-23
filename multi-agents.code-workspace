@@ -52,6 +52,11 @@
     ]
   },
   "settings": {
+
+    "[python]": {
+      "editor.defaultFormatter": "charliermarsh.ruff"
+    },
+
     "github.copilot.chat.agent.autoFix": true,
     "github.copilot.chat.agent.currentEditorContext.enabled": true,
     "github.copilot.chat.agent.thinkingTool": true,
