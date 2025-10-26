@@ -24,6 +24,7 @@ def _create_application() -> FastAPI:
         push_sender=None,
         queue_manager=InMemoryQueueManager(),
     )
+
     app = A2AFastAPIApplication(
         agent_card=build_agent_card(base_url=BASE_URL),
         http_handler=handler,

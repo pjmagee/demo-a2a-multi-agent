@@ -9,16 +9,16 @@ from a2a.server.events.event_queue import EventQueue
 from a2a.utils import new_agent_text_message
 from shared.openai_session_helpers import ensure_context_id
 
-from emergency_operator_agent.agent import Operator911Agent
+from emergency_operator_agent.agent import EmergencyOperatorAgent
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 
-class Operator911AgentExecutor(AgentExecutor):
+class OperatorAgentExecutor(AgentExecutor):
     """Adapter invoked by the A2A DefaultRequestHandler."""
 
     def __init__(self) -> None:
         """Initialize the adapter with the Emergency Operator Agent."""
-        self.agent = Operator911Agent()
+        self.agent = EmergencyOperatorAgent()
 
     @override
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:

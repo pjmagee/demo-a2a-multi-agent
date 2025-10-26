@@ -13,7 +13,7 @@ from shared.peer_tools import default_peer_tools, peer_message_context
 logger: logging.Logger = logging.getLogger(name=__name__)
 
 
-class Operator911Agent:
+class EmergencyOperatorAgent:
     """Coordinates emergency routing using the OpenAI Agents SDK."""
 
     sessions: ClassVar[dict[str, Session]] = {}
@@ -52,7 +52,7 @@ class Operator911Agent:
         """
         user_input: str = context.get_user_input()
         session: Session | None = get_or_create_session_from_context(
-            sessions=Operator911Agent.sessions,
+            sessions=EmergencyOperatorAgent.sessions,
             context=context,
         )
 

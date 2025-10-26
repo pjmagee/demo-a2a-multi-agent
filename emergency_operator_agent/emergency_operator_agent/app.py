@@ -10,7 +10,7 @@ from a2a.server.tasks.inmemory_task_store import InMemoryTaskStore
 from fastapi import FastAPI
 
 from emergency_operator_agent.agent_card import build_agent_card
-from emergency_operator_agent.executor import Operator911AgentExecutor
+from emergency_operator_agent.executor import OperatorAgentExecutor
 
 PORT = int(os.getenv(key="PORT", default="8016"))
 HOST: str = os.getenv(key="HOST", default="127.0.0.1")
@@ -18,7 +18,7 @@ BASE_URL: str = os.getenv(key="BASE_URL", default=f"http://{HOST}:{PORT}")
 
 def _create_application() -> FastAPI:
     request_handler = DefaultRequestHandler(
-        agent_executor=Operator911AgentExecutor(),
+        agent_executor=OperatorAgentExecutor(),
         task_store=InMemoryTaskStore(),
         push_sender=None,
         queue_manager=InMemoryQueueManager(),

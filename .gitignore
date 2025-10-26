@@ -11,3 +11,12 @@ __pycache__/
 **/__pycache__/
 
 .idea/
+
+# Node/Next.js frontend artifacts
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+out/
+dist/
+build/

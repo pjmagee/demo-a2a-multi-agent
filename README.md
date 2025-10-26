@@ -8,22 +8,25 @@
 - VSCode launch and tasks configured
 - UV for python, packages, venv setup
 - VSCode mutli root code-workspace for nice Python Interpreter configuration
+- CopilotKit
 
 ## Implemented
 
-- Basic A2A Agent wrappers around OpenAI Agents
-- Tool calls
+- Basic A2A Agent using OpenAI Agent Framework and Microsoft Agent Framework
 - Short term OpenAI Agent in-memory
-- Shared library that can be used across isolated python agents
-- Common shared tool calls (e.g enabling agents to list and find other agents)
-- Interactive via command line with a testing agent and ask it to call other agents
+- Short term Microsoft Agent in-memory
+- Common shared library with shared tool calls (e.g enabling agents to list and find other agents)
+- OpenAI REPL example via command line with a testing agent and ask it to call other agents
+- Microsoft DevUI example counter agent
 
 ## TODO
 
-- Implement guardrails example
-- Zookeeper or alternative /.well-known/agent-card.json discoverability
-- Add OpenTelemetry with jaeger otel
+- Continue on CopilotKit
+- Implement better guardrail examples
+- Agent discoverability via agent registration
+- Add OpenTelemetry with jaeger otel or alternative
 - A2A Tasks cancellation
 - docker compose or .NET Aspire
-- Implement agent(s) using Microsoft Agent SDK
+- Implement various other agent(s) using various Agent SDKs
 - Long term memory
+- Session management

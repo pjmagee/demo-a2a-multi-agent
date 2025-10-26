@@ -1,17 +1,15 @@
 [project]
-name = "counter-agent"
+name = "webapp-backend"
 version = "0.1.0"
-description = "Counter A2A Agent using Microsoft agent-framework"
+description = "FastAPI backend for the CopilotKit web frontend"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-  "a2a-sdk[all]",
-  "agent-framework-core",
-  "agent-framework-a2a",
-  "agent-framework-devui",
   "fastapi",
   "uvicorn",
   "httpx",
+  "pydantic-settings",
+  "a2a-sdk[all]",
   "shared",
 ]
 
