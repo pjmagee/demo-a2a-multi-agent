@@ -15,6 +15,12 @@ __pycache__/
 # Aspire configuration with secrets
 **/appsettings.Development.json
 
+# .NET build artifacts
+bin/
+**/bin/
+obj/
+**/obj/
+
 # Node/Next.js frontend artifacts
 node_modules/
 **/node_modules/
