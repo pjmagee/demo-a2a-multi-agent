@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/aspire/">
+    <Project Path="AppHost.csproj" Type="C#" />
+  </Folder>
+</Solution>

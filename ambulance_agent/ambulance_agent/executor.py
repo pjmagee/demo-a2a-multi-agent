@@ -27,11 +27,20 @@ class AmbulanceAgentExecutor(AgentExecutor):
         # Ensure context_id exists (A2A protocol: server creates if not provided)
         context_id: str = ensure_context_id(context)
 
-        # Invoke agent with guaranteed context_id
-        response_text: str = await self.ambulance_agent.invoke(
-            context=context,
-            context_id=context_id,
-        )
+        try:
+            # Invoke agent with guaranteed context_id
+            response_text: str = await self.ambulance_agent.invoke(
+                context=context,
+                context_id=context_id,
+            )
+        except Exception:
+            logger.exception(
+                "Agent invocation failed context_id=%s",
+                context_id,
+            )
+            response_text = (
+                "I apologize, but I encountered an error processing your request."
+            )
 
         logger.info(
             "Executor sending response context_id=%s text=%s",

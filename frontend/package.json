@@ -1,28 +1,14 @@
 {
-  "name": "frontend",
-  "version": "0.1.0",
+  "name": "frontend-root",
   "private": true,
+  "version": "0.1.0",
+  "workspaces": ["agent-ui"],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@copilotkit/react-core": "^1.10.6",
-    "@copilotkit/react-ui": "^1.10.6",
-    "@copilotkit/runtime": "^1.10.6",
-    "next": "16.0.0",
-    "react": "19.2.0",
-    "react-dom": "19.2.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.0.0",
-    "typescript": "^5"
+    "dev": "npm run dev --workspace agent-ui",
+    "build": "npm run build --workspace agent-ui",
+    "start": "npm run start --workspace agent-ui",
+    "lint": "npm run lint --workspace agent-ui",
+    "prettier": "npm run prettier --workspace agent-ui",
+    "prettier:fix": "npm run prettier:fix --workspace agent-ui"
   }
 }

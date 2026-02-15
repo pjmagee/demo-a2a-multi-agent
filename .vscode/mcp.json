@@ -2,6 +2,21 @@
     "servers": {
         "CopilotKit MCP": {
             "url": "https://mcp.copilotkit.ai/sse"
-        }
+        },
+        "assistant-ui": {
+            "command": "cmd",
+            "args": [
+                "/c",
+                "npx",
+                "-y",
+                "@assistant-ui/mcp-docs-server"
+            ],
+            "type": "stdio"
+        },
+        "aspire": {
+            "type": "stdio",
+            "command": "aspire",
+            "args": ["mcp", "start"]    
+        },
     },
 }

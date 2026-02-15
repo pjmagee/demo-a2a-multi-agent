@@ -25,7 +25,12 @@
         "webapp_backend.app"
       ],
       "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "HOST": "127.0.0.1",
+          "PORT": "8100",
+          "WEBAPP_AGENT_ADDRESSES": "[\"http://127.0.0.1:8011\",\"http://127.0.0.1:8012\",\"http://127.0.0.1:8013\",\"http://127.0.0.1:8014\",\"http://127.0.0.1:8015\",\"http://127.0.0.1:8016\",\"http://127.0.0.1:8017\",\"http://127.0.0.1:8018\",\"http://127.0.0.1:8020\"]"
+        }
       },
       "problemMatcher": []
     }

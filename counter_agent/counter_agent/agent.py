@@ -5,7 +5,7 @@ import os
 from collections.abc import AsyncIterator
 
 from a2a.server.agent_execution.context import RequestContext
-from agent_framework import AgentRunResponseUpdate, ChatAgent
+from agent_framework import Agent, AgentResponseUpdate
 from agent_framework.openai import OpenAIChatClient
 
 from counter_agent.in_memory_session_provider import InMemorySessionProvider
@@ -20,8 +20,8 @@ class CounterAgent:
         """Initialize the CounterAgent with Microsoft agent-framework."""
         self.session_provider = InMemorySessionProvider()
 
-        self.agent = ChatAgent(
-            chat_client=OpenAIChatClient(
+        self.agent = Agent(
+           client=OpenAIChatClient(
                 api_key=os.getenv(key="OPENAI_API_KEY"),
                 model_id=os.getenv(key="OPENAI_CHAT_MODEL_ID", default="gpt-4o-mini"),
             ),
@@ -57,9 +57,10 @@ class CounterAgent:
             user_input,
         )
 
-        chunk: AgentRunResponseUpdate
-        async for chunk in self.agent.run_stream(
+        chunk: AgentResponseUpdate
+        async for chunk in self.agent.run(
             messages=user_input,
+            stream=True,
             context_id=context_id,
         ):
             if chunk.text:

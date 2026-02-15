@@ -8,10 +8,18 @@
       "request": "launch",
       "module": "firebrigade_agent.app",
       "cwd": "${workspaceFolder}",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
       "envFile": "${workspaceFolder}/.env",
       "console": "integratedTerminal",
-      "justMyCode": true
+      "justMyCode": true,
+      "linux": {
+        "python": "${workspaceFolder}/.venv/bin/python"
+      },
+      "windows": {
+        "python": "${workspaceFolder}/.venv/Scripts/python.exe"
+      },
+      "osx": {
+        "python": "${workspaceFolder}/.venv/bin/python"
+      }
     },
     {
       "name": "Fire Brigade Agent REPL",
@@ -19,11 +27,19 @@
       "type": "debugpy",
       "request": "launch",
       "module": "firebrigade_agent.repl",
-      "cwd": "${workspaceFolder}",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "cwd": "${workspaceFolder}",      
       "envFile": "${workspaceFolder}/.env",
       "console": "integratedTerminal",
-      "justMyCode": true
+      "justMyCode": true,
+      "linux": {
+        "python": "${workspaceFolder}/.venv/bin/python"
+      },
+      "windows": {
+        "python": "${workspaceFolder}/.venv/Scripts/python.exe"
+      },
+      "osx": {
+        "python": "${workspaceFolder}/.venv/bin/python"
+      }
     }
   ]
 }

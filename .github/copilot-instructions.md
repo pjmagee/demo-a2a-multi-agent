@@ -22,6 +22,10 @@
 - Define tools with agents.function_tool; place domain tools in agent.py or dedicated modules (see weather_agent/tools.py) and include peer tools via shared.peer_tools.default_peer_tools when cross-agent messaging is needed.
 - Guardrails live alongside agents (weather_agent/guard_rails.py, tester_agent/guard_rails.py) and plug in via the Agent constructor’s input_guardrails list.
 
+## Aspire Orchestration
+
+https://aspire.dev/llms.txt
+
 ## Shared Utilities & Cross-Agent
 
 - shared/ is packaged via uv and mounted into each agent through pyproject.toml [tool.uv.sources]; favor adding reusable helpers here instead of duplicating code.

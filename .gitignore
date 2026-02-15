@@ -12,6 +12,9 @@ __pycache__/
 
 .idea/
 
+# Aspire configuration with secrets
+**/appsettings.Development.json
+
 # Node/Next.js frontend artifacts
 node_modules/
 **/node_modules/

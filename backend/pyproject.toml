@@ -22,6 +22,7 @@ shared = { path = "../shared", editable = true }
 [dependency-groups]
 dev = [
   "ruff",
+  "pyright",
 ]
 
 [tool.ruff]
@@ -35,4 +36,5 @@ ignore = [
   "D418",
   "D419",
   "DOC",
+  "S101",  # allow assert statements in tests
 ]

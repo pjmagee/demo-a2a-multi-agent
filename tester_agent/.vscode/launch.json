@@ -2,28 +2,28 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Tester Agent",
-      "consoleName": "Tester Agent",
+      "name": "Tester Agent Script",
       "type": "debugpy",
       "request": "launch",
-      "module": "tester_agent.app",
+      "module": "tester_agent.run_tests",
       "cwd": "${workspaceFolder}",
       "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "envFile": "${workspaceFolder}/.env",
       "justMyCode": true,
-      "console": "integratedTerminal"
+      "env": {
+        "PEER_AGENT_ADDRESSES": "http://localhost:8011,http://localhost:8012,http://localhost:8013,http://localhost:8014,http://localhost:8015,http://localhost:8016"
+      }
     },
     {
       "name": "Tester Agent REPL",
-      "consoleName": "Tester Agent REPL",
       "type": "debugpy",
       "request": "launch",
       "module": "tester_agent.repl",
       "cwd": "${workspaceFolder}",
       "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "envFile": "${workspaceFolder}/.env",
       "justMyCode": true,
-      "console": "integratedTerminal"
+      "env": {
+        "PEER_AGENT_ADDRESSES": "http://localhost:8011,http://localhost:8012,http://localhost:8013,http://localhost:8014,http://localhost:8015,http://localhost:8016"
+      }
     }
   ]
 }

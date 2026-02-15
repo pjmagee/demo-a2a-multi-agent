@@ -4,9 +4,7 @@ import logging
 from collections.abc import Sequence
 from typing import override
 
-from agent_framework import ContextProvider
-from agent_framework._memory import Context
-from agent_framework._types import ChatMessage
+from agent_framework import Context, ContextProvider, Message
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 
@@ -16,13 +14,13 @@ class InMemorySessionProvider(ContextProvider):
 
     def __init__(self) -> None:
         """Initialize the in-memory session store."""
-        self._sessions: dict[str, list[ChatMessage]] = {}
+        self._sessions: dict[str, list[Message]] = {}
         logger.debug("InMemorySessionProvider initialized")
 
     @override
     async def invoking(
         self,
-        messages: ChatMessage | Sequence[ChatMessage],
+        messages: Message | Sequence[Message],
         **kwargs: object,
     ) -> Context:
         """Provide conversation context before invoking the agent.
@@ -40,8 +38,8 @@ class InMemorySessionProvider(ContextProvider):
             context_id_value if isinstance(context_id_value, str) else None
         )
 
-        new_messages: list[ChatMessage] = (
-            [messages] if isinstance(messages, ChatMessage) else list(messages)
+        new_messages: list[Message] = (
+            [messages] if isinstance(messages, Message) else list(messages)
         )
 
         if context_id:
@@ -49,7 +47,7 @@ class InMemorySessionProvider(ContextProvider):
                 self._sessions[context_id] = []
                 logger.debug("Created new session for context_id=%s", context_id)
 
-            full_history: list[ChatMessage] = self._sessions[context_id] + new_messages
+            full_history: list[Message] = self._sessions[context_id] + new_messages
             logger.debug(
                 "Providing context for context_id=%s with %d messages",
                 context_id,
@@ -63,8 +61,8 @@ class InMemorySessionProvider(ContextProvider):
     @override
     async def invoked(
         self,
-        request_messages: ChatMessage | Sequence[ChatMessage],
-        response_messages: ChatMessage | Sequence[ChatMessage] | None = None,
+        request_messages: Message | Sequence[Message],
+        response_messages: Message | Sequence[Message] | None = None,
         invoke_exception: BaseException | None = None,
         **kwargs: object,
     ) -> None:
@@ -87,15 +85,15 @@ class InMemorySessionProvider(ContextProvider):
             and context_id in self._sessions
             and response_messages is not None
         ):
-            req_list: list[ChatMessage] = (
+            req_list: list[Message] = (
                 [request_messages]
-                if isinstance(request_messages, ChatMessage)
+                if isinstance(request_messages, Message)
                 else list(request_messages)
             )
 
-            resp_list: list[ChatMessage] = (
+            resp_list: list[Message] = (
                 [response_messages]
-                if isinstance(response_messages, ChatMessage)
+                if isinstance(response_messages, Message)
                 else list(response_messages)
             )
 

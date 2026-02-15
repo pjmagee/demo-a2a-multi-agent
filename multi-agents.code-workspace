@@ -41,12 +41,24 @@
 			"path": "shared"
 		},
 		{
+			"name": "a2a_registry",
+			"path": "a2a_registry"
+		},
+		{
 			"name": "backend",
 			"path": "backend"
 		},
 		{
 			"name": "frontend",
 			"path": "frontend"
+		},
+		{
+			"name": "aspire",
+			"path": "aspire"
+		},
+		{
+			"name": "a2a-inspector",
+			"path": "a2a-inspector"
 		},
 		{
 			"path": "."
@@ -112,7 +124,9 @@
 			"implementAbstractClasses": true,
 			"generateSymbol": true,
 			"convertFormatString": true
-		},		
+		},
+		"powershell.cwd": "demo-a2a-multi-agent",
+		
 	},
 	"tasks": {
 		"version": "2.0.0",
@@ -235,11 +249,74 @@
 				}
 			},
 			{
+				"label": "backend: uv sync",
+				"type": "shell",
+				"command": "uv",
+				"args": [
+					"sync",
+					"--group",
+					"dev"
+				],
+				"options": {
+					"cwd": "${workspaceFolder}/backend"
+				}
+			},
+			{
+				"label": "frontend: npm install",
+				"type": "shell",
+				"command": "npm",
+				"args": [
+					"install"
+				],
+				"options": {
+					"cwd": "${workspaceFolder}/frontend"
+				}
+			},
+			{
+				"label": "backend: run api",
+				"type": "shell",
+				"command": "uv",
+				"args": [
+					"run",
+					"python",
+					"-m",
+					"webapp_backend.app"
+				],
+				"options": {
+					"cwd": "${workspaceFolder}/backend",
+					"env": {
+						"HOST": "127.0.0.1",
+						"PORT": "8100",
+						"WEBAPP_AGENT_ADDRESSES": "[\"http://127.0.0.1:8011\",\"http://127.0.0.1:8012\",\"http://127.0.0.1:8013\",\"http://127.0.0.1:8014\",\"http://127.0.0.1:8015\",\"http://127.0.0.1:8016\",\"http://127.0.0.1:8017\",\"http://127.0.0.1:8018\",\"http://127.0.0.1:8020\"]"
+					}
+				},
+				"isBackground": true,
+				"problemMatcher": []
+			},
+			{
+				"label": "frontend: dev",
+				"type": "shell",
+				"command": "npm",
+				"args": [
+					"run",
+					"dev"
+				],
+				"options": {
+					"cwd": "${workspaceFolder}/frontend",
+					"env": {
+						"PORT": "3000"
+					}
+				},
+				"isBackground": true,
+				"problemMatcher": []
+			},
+			{
 				"label": "workspace: uv sync all",
 				"type": "shell",
 				"command": "echo 'Completed uv sync across projects'",
 				"dependsOrder": "sequence",
 				"dependsOn": [
+					"backend: uv sync",
 					"firebrigade_agent: uv sync",
 					"police_agent: uv sync",
 					"mi5_agent: uv sync",
@@ -249,6 +326,26 @@
 					"greetings_agent: uv sync",
 					"tester_agent: uv sync",
 					"shared: uv sync"
+				]
+			},
+			{
+				"label": "workspace: bootstrap",
+				"type": "shell",
+				"command": "echo 'Completed bootstrap'",
+				"dependsOrder": "sequence",
+				"dependsOn": [
+					"workspace: uv sync all",
+					"frontend: npm install"
+				]
+			},
+			{
+				"label": "workspace: dev stack",
+				"type": "shell",
+				"command": "echo 'Launching backend and frontend dev servers'",
+				"dependsOrder": "parallel",
+				"dependsOn": [
+					"backend: run api",
+					"frontend: dev"
 				]
 			}
 		]

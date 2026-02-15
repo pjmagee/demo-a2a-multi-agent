@@ -8,4 +8,4 @@ from emergency_operator_agent.executor import OperatorAgentExecutor
 enable_verbose_stdout_logging()
 set_tracing_disabled(disabled=True)
 
-__all__: list[str] = ["WeatherAgent", "WeatherAgentExecutor"]
+__all__: list[str] = ["EmergencyOperatorAgent", "OperatorAgentExecutor"]

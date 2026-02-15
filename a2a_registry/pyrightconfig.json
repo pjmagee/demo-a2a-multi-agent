@@ -1,0 +1,11 @@
+{
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "pythonVersion": "3.13",
+      "pythonPlatform": "All",
+      "extraPaths": ["."]
+    }
+  ],
+  "typeCheckingMode": "standard"
+}

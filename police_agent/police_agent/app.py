@@ -1,6 +1,9 @@
 """Application entry point for the Police agent."""
 
+import logging
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 import httpx
 import uvicorn
@@ -13,13 +16,30 @@ from a2a.server.tasks import (
 )
 from a2a.server.tasks.inmemory_task_store import InMemoryTaskStore
 from fastapi import FastAPI
+from shared.otel_config import configure_telemetry
+from shared.registry_client import register_with_registry, unregister_from_registry
 
 from police_agent.agent_card import build_agent_card
 from police_agent.executor import PoliceAgentExecutor
 
+# Initialize OpenTelemetry for Aspire dashboard
+configure_telemetry("police-agent")
+
+logger = logging.getLogger(__name__)
+
 PORT = int(os.getenv(key="PORT", default="8012"))
 HOST: str = os.getenv(key="HOST", default="127.0.0.1")
 BASE_URL: str = os.getenv(key="BASE_URL", default=f"http://{HOST}:{PORT}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Manage agent registration lifecycle."""
+    agent_card = build_agent_card(base_url=BASE_URL)
+    logger.info("Police Agent starting at %s", BASE_URL)
+    await register_with_registry(BASE_URL, agent_card)
+    yield
+    await unregister_from_registry(BASE_URL)
 
 
 def _create_application() -> FastAPI:
@@ -41,6 +61,7 @@ def _create_application() -> FastAPI:
         extended_card_modifier=None,
     )
     fastapi_app: FastAPI = server.build()
+    fastapi_app.router.lifespan_context = lifespan
     return fastapi_app
 
 

@@ -6,6 +6,7 @@ import os
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
+from typing import Any
 from uuid import uuid4
 
 import httpx
@@ -25,6 +26,7 @@ from agents import FunctionTool, Tool, function_tool
 logger: logging.Logger = logging.getLogger(name=__name__)
 
 HTTPX_TIMEOUT: httpx.Timeout = httpx.Timeout(timeout=30.0)
+REGISTRY_URL: str = os.getenv("A2A_REGISTRY_URL", "http://127.0.0.1:8090")
 
 _CURRENT_MESSAGE_CONTEXT_ID: ContextVar[str | None] = ContextVar(
     "shared.peer_tools.context_id",
@@ -53,9 +55,57 @@ def _filter_self_address(addresses: list[str]) -> list[str]:
         if _normalize_url(url=address) != normalized_base
     ]
 
-def load_peer_addresses(env_var: str = "PEER_AGENT_ADDRESSES") -> list[str]:
-    """Return the configured peer agent addresses from the environment."""
 
+async def load_peer_addresses_from_registry(
+    registry_url: str | None = None,
+) -> list[str]:
+    """Load peer agent addresses from the A2A Registry.
+
+    Args:
+        registry_url: Optional registry URL (defaults to A2A_REGISTRY_URL env var)
+
+    Returns:
+        List of peer agent addresses (excluding self)
+
+    """
+    url = registry_url or REGISTRY_URL
+    endpoint = f"{url}/agents"
+
+    try:
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+            response = await client.get(endpoint)
+            response.raise_for_status()
+            data: dict[str, Any] = response.json()
+            agents: list[dict[str, Any]] = data.get("agents", [])
+            addresses = [agent["address"] for agent in agents]
+            filtered = _filter_self_address(addresses)
+            logger.debug(
+                "Loaded %d peer addresses from registry",
+                len(filtered),
+            )
+            return filtered
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Failed to load addresses from registry at %s: %s",
+            url,
+            exc,
+        )
+        return []
+
+
+def load_peer_addresses(env_var: str = "PEER_AGENT_ADDRESSES") -> list[str]:
+    """Return the configured peer agent addresses from the environment.
+
+    DEPRECATED: This fallback method uses environment variables.
+    Prefer using load_peer_addresses_from_registry() for dynamic discovery.
+
+    Args:
+        env_var: Environment variable name containing comma-separated addresses
+
+    Returns:
+        List of peer agent addresses (excluding self)
+
+    """
     raw_value: str = os.getenv(key=env_var, default="")
     addresses: list[str] = [
         value.strip()
