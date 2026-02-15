@@ -3,7 +3,7 @@
 import logging
 
 from agents import function_tool
-from weather_service import WeatherResponse, WeatherService
+from weather_agent.weather_service import WeatherResponse, WeatherService
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 

@@ -10,7 +10,7 @@
       "python": "${workspaceFolder}/.venv/Scripts/python.exe",
       "justMyCode": true,
       "env": {
-        "PEER_AGENT_ADDRESSES": "http://localhost:8011,http://localhost:8012,http://localhost:8013,http://localhost:8014,http://localhost:8015,http://localhost:8016"
+        "A2A_REGISTRY_URL": "http://localhost:8090"
       }
     },
     {
@@ -22,7 +22,7 @@
       "python": "${workspaceFolder}/.venv/Scripts/python.exe",
       "justMyCode": true,
       "env": {
-        "PEER_AGENT_ADDRESSES": "http://localhost:8011,http://localhost:8012,http://localhost:8013,http://localhost:8014,http://localhost:8015,http://localhost:8016"
+        "A2A_REGISTRY_URL": "http://localhost:8090"
       }
     }
   ]

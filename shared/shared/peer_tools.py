@@ -96,8 +96,9 @@ async def load_peer_addresses_from_registry(
 def load_peer_addresses(env_var: str = "PEER_AGENT_ADDRESSES") -> list[str]:
     """Return the configured peer agent addresses from the environment.
 
-    DEPRECATED: This fallback method uses environment variables.
-    Prefer using load_peer_addresses_from_registry() for dynamic discovery.
+    DEPRECATED: This fallback method uses environment variables and is only
+    used when the registry is unavailable. Prefer using
+    load_peer_addresses_from_registry() for dynamic discovery.
 
     Args:
         env_var: Environment variable name containing comma-separated addresses
@@ -115,31 +116,33 @@ def load_peer_addresses(env_var: str = "PEER_AGENT_ADDRESSES") -> list[str]:
     return _filter_self_address(addresses=addresses)
 
 
-def _prepare_addresses(
-    peer_addresses: Sequence[str] | None,
-) -> tuple[str, ...]:
-    if peer_addresses is not None:
-        trimmed_addresses: list[str] = [
-            address.strip()
-            for address in peer_addresses
-            if address.strip()
-        ]
-        filtered_addresses: list[str] = _filter_self_address(
-            addresses=trimmed_addresses,
-        )
-    else:
-        filtered_addresses = load_peer_addresses()
-    return tuple(filtered_addresses)
+def _make_list_agents_tool(explicit_addresses: Sequence[str] | None = None) -> Tool:
+    """Construct a tool for listing available agents.
 
+    Args:
+        explicit_addresses: Optional explicit addresses. If None, loads from
+            registry dynamically when tool is invoked.
 
-def _make_list_agents_tool(addresses: tuple[str, ...]) -> Tool:
-    """Construct a tool for listing available agents."""
+    """
 
     @function_tool
     async def list_agents() -> list[AgentCard]:
-        """List all available agents."""
+        """List all available agents from the registry."""
+        # Load addresses dynamically from registry or use explicit ones
+        if explicit_addresses is not None:
+            addresses = list(explicit_addresses)
+        else:
+            addresses = await load_peer_addresses_from_registry()
+            # Fallback to env var only if registry fails
+            if not addresses:
+                logger.warning(
+                    "Registry unavailable; falling back to PEER_AGENT_ADDRESSES env var",
+                )
+                addresses = load_peer_addresses()
+
         agent_cards: list[AgentCard] = []
         if not addresses:
+            logger.warning("No peer addresses available")
             return agent_cards
 
         async with httpx.AsyncClient(
@@ -254,7 +257,14 @@ def _build_send_message_request(message: str, context_id: str | None) -> SendMes
         ),
     )
 
-def _make_send_message_tool(addresses: tuple[str, ...]) -> FunctionTool:
+def _make_send_message_tool(explicit_addresses: Sequence[str] | None = None) -> FunctionTool:
+    """Construct a tool for sending messages to peers.
+
+    Args:
+        explicit_addresses: Optional explicit addresses. If None, loads from
+            registry dynamically when tool is invoked.
+
+    """
 
     @function_tool
     async def send_message(
@@ -274,7 +284,20 @@ def _make_send_message_tool(addresses: tuple[str, ...]) -> FunctionTool:
         """
         logger.info("Sending message '%s' to %s", message, agent_name)
 
+        # Load addresses dynamically from registry or use explicit ones
+        if explicit_addresses is not None:
+            addresses = list(explicit_addresses)
+        else:
+            addresses = await load_peer_addresses_from_registry()
+            # Fallback to env var only if registry fails
+            if not addresses:
+                logger.warning(
+                    "Registry unavailable; falling back to PEER_AGENT_ADDRESSES env var",
+                )
+                addresses = load_peer_addresses()
+
         if not addresses:
+            logger.warning("No peer addresses available")
             return None
 
         async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as httpx_client:
@@ -331,15 +354,41 @@ def _make_send_message_tool(addresses: tuple[str, ...]) -> FunctionTool:
 def _build_peer_communication_tools(
     peer_addresses: Sequence[str] | None = None,
 ) -> list[Tool]:
-    """Construct tools for listing peers and sending messages."""
-    addresses = _prepare_addresses(peer_addresses=peer_addresses)
-    list_agents: Tool = _make_list_agents_tool(addresses=addresses)
-    send_message: Tool = _make_send_message_tool(addresses=addresses)
+    """Construct tools for listing peers and sending messages.
+
+    Args:
+        peer_addresses: Optional explicit addresses. If None, tools will
+            dynamically load from registry when invoked.
+
+    """
+    # Only prepare addresses if explicitly provided; otherwise let tools load dynamically
+    explicit_addrs: tuple[str, ...] | None
+    if peer_addresses is not None:
+        trimmed_addresses: list[str] = [
+            address.strip()
+            for address in peer_addresses
+            if address.strip()
+        ]
+        filtered_addresses: list[str] = _filter_self_address(
+            addresses=trimmed_addresses,
+        )
+        explicit_addrs = tuple(filtered_addresses)
+    else:
+        explicit_addrs = None
+
+    list_agents: Tool = _make_list_agents_tool(explicit_addresses=explicit_addrs)
+    send_message: Tool = _make_send_message_tool(explicit_addresses=explicit_addrs)
     return [list_agents, send_message]
 
 
 def default_peer_tools() -> list[Tool]:
-    """Return peer communication tools using environment-provided addresses."""
+    """Return peer communication tools using registry-based discovery.
+
+    Tools will dynamically load agent addresses from the A2A Registry when
+    invoked. If the registry is unavailable, falls back to PEER_AGENT_ADDRESSES
+    environment variable.
+
+    """
     return _build_peer_communication_tools(peer_addresses=None)
 
 

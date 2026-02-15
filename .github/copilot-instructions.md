@@ -29,7 +29,8 @@ https://aspire.dev/llms.txt
 ## Shared Utilities & Cross-Agent
 
 - shared/ is packaged via uv and mounted into each agent through pyproject.toml [tool.uv.sources]; favor adding reusable helpers here instead of duplicating code.
-- shared/peer_tools.py provides list_agents/send_message functions backed by PEER_AGENT_ADDRESSES env var; keep BASE_URL per agent in sync so self-filtering works.
+- shared/peer_tools.py provides list_agents/send_message functions that dynamically load peers from the A2A Registry; keep BASE_URL per agent in sync so self-filtering works.
+- shared/registry_client.py handles automatic agent registration/unregistration with the A2A Registry on startup/shutdown.
 - shared/openai_session_helpers centralizes context and sqlite-backed session creation; reuse ensure_context_id in new executors for protocol compliance.
 
 ## Development Workflow
@@ -44,4 +45,4 @@ https://aspire.dev/llms.txt
 - Keep AgentCard.skill metadata synchronized with tool signatures and instructions; update examples whenever tool behavior changes.
 - Executor wraps the domain Agent
 - Log tool usage with logger.info for observability (see firebrigade_agent/agent.py); follow the existing structured messages when adding new tools.
-- Configure new peer-aware agents to accept PEER_AGENT_ADDRESSES and avoid hard-coding hosts; add any new shared dependency to shared/pyproject.toml and reference it where needed.
+- New peer-aware agents automatically discover peers via the registry (no configuration needed); ensure A2A_REGISTRY_URL is set correctly; add any new shared dependency to shared/pyproject.toml and reference it where needed.

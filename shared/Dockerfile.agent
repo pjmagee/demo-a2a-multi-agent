@@ -1,0 +1,21 @@
+# Generic Dockerfile for A2A Python Agents
+FROM python:3.13-slim
+WORKDIR /app
+
+# Install uv
+RUN pip install uv
+
+# Copy shared dependency first (for better caching)
+COPY shared/ /app/shared/
+
+# Copy agent project files
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies
+RUN uv sync --no-cache
+
+# Copy agent source code
+COPY . .
+
+# The CMD will be overridden by Aspire with the specific module
+CMD ["uv", "run", "python", "-m", "app"]

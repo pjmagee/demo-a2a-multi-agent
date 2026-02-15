@@ -12,12 +12,15 @@ The system uses a central **A2A Registry** service for dynamic agent discovery:
   - Provides `/agents` endpoint for peer discovery
   
 - **Agent Registration**: Each agent automatically registers/unregisters via `shared.registry_client`
-- **Dynamic Peer Discovery**: Agents query the registry instead of using hardcoded addresses
-- **No Configuration Required**: Remove `PEER_AGENT_ADDRESSES` environment variables
+- **Dynamic Peer Discovery**: Agents query the registry at runtime to discover peers
+- **No Configuration Required**: Agents automatically load peer addresses from the registry
+  - No need for `PEER_AGENT_ADDRESSES` environment variables
+  - Falls back to `PEER_AGENT_ADDRESSES` only if registry is unavailable
 
 **Environment Variables:**
+
 - `A2A_REGISTRY_URL`: Registry URL (default: `http://127.0.0.1:8090`)
-- `BASE_URL`: Each agent's base URL for self-filtering
+- `BASE_URL`: Each agent's base URL for self-filtering during peer discovery
 
 ## Setup
 
@@ -54,11 +57,12 @@ dotnet run
 ```
 
 This starts:
-- Aspire Dashboard at http://localhost:15888 (metrics, logs, traces)
-- A2A Registry at http://localhost:8090
+
+- Aspire Dashboard at <http://localhost:15888> (metrics, logs, traces)
+- A2A Registry at <http://localhost:8090>
 - All 9 agents (auto-register with registry)
-- Backend API at http://localhost:8100
-- Frontend at http://localhost:3000
+- Backend API at <http://localhost:8100>
+- Frontend at <http://localhost:3000>
 
 See [aspire/README.md](aspire/README.md) for details.
 
@@ -67,40 +71,49 @@ See [aspire/README.md](aspire/README.md) for details.
 #### Quick Start
 
 1. **Start the Registry** (required first):
+
    ```bash
    cd a2a_registry
    uv run python -m a2a_registry.app
    ```
+
    Registry runs on `http://127.0.0.1:8090`
 
 2. **Start Backend** (for web UI):
+
    ```bash
    cd backend
    uv run python -m webapp_backend.app
    ```
+
    Backend runs on `http://127.0.0.1:8100`
 
 3. **Start Agents** (they will auto-register):
+
    ```bash
    cd emergency_operator_agent
    uv run python -m emergency_operator_agent.app
    ```
+
    Repeat for other agents (firebrigade, police, mi5, ambulance, weather, tester, greetings, counter)
 
 4. **Start Frontend** (for web UI):
+
    ```bash
    cd frontend/agent-ui
    npm run dev
    ```
+
    Frontend runs on `http://localhost:3000`
 
-5. **Or use VS Code tasks**: 
+5. **Or use VS Code tasks**:
    - Run `workspace: dev stack` task to start registry, backend, and frontend
    - Run individual agent tasks like `emergency_operator_agent: run`
 
 ### Verify Registration
 
 Check registered agents:
+
 ```bash
 # Registry endpoint
 curl http://127.0.0.1:8090/agents
@@ -112,13 +125,16 @@ curl http://127.0.0.1:8100/api/agents
 ### Environment Variables
 
 **Required for each agent:**
+
 - `BASE_URL`: Agent's address (e.g., `http://127.0.0.1:8011`)
 - `PORT`: Agent's port (e.g., `8011`)
 
 **Optional:**
+
 - `A2A_REGISTRY_URL`: Registry location (default: `http://127.0.0.1:8090`)
 
 **Backend specific:**
+
 - `WEBAPP_USE_REGISTRY`: Enable registry mode (default: `true`)
 - `WEBAPP_REGISTRY_URL`: Registry location (default: `http://127.0.0.1:8090`)
 - `WEBAPP_AGENT_ADDRESSES`: CSV list of agents (legacy mode if `USE_REGISTRY=false`)
