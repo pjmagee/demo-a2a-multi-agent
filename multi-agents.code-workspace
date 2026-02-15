@@ -45,6 +45,10 @@
 			"path": "a2a_registry"
 		},
 		{
+			"name": "a2a_client",
+			"path": "a2a_client"
+		},
+		{
 			"name": "backend",
 			"path": "backend"
 		},

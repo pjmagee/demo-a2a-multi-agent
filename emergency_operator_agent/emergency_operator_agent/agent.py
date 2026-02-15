@@ -34,8 +34,9 @@ from shared.peer_tools import (
 logger: logging.Logger = logging.getLogger(name=__name__)
 
 
-# Type alias for status callback
+# Type alias for status and message callbacks
 StatusCallback = Callable[[str], Awaitable[None]]
+MessageCallback = Callable[[str], Awaitable[None]]
 
 
 def _normalize_url(url: str) -> str:
@@ -64,8 +65,9 @@ class EmergencyOperatorAgent:
 
     def __init__(self) -> None:
         """Initialize the Emergency Operator Agent."""
-        # Store status callback reference for tool building
+        # Store callback references for tool building
         self._status_callback: StatusCallback | None = None
+        self._message_callback: MessageCallback | None = None
 
         self.agent = Agent(
             name="Emergency Operator Agent",
@@ -74,8 +76,13 @@ class EmergencyOperatorAgent:
                 "For non-emergencies: 'This line is reserved for emergencies only.'\n\n"
                 "For emergencies:\n"
                 "1. Use list_agents to get exact agent names\n"
-                "2. Use send_message with EXACT agent name to dispatch services\n"
-                "3. Include location, emergency type, and urgency in messages\n\n"
+                "2. If NO agents are available, inform the caller that all emergency "
+                "services are temporarily unavailable and advise them to seek "
+                "alternative help\n"
+                "3. For each required service, use send_message with EXACT agent name\n"
+                "4. Include location, emergency type, and urgency in messages\n"
+                "5. After dispatching all services, summarize what was done\n\n"
+                "Important: Dispatch services ONE AT A TIME and report responses.\n"
                 "Always list agents if unsure of names. Agent names must be exact."
             ),
             handoffs=[],
@@ -106,6 +113,15 @@ class EmergencyOperatorAgent:
 
             agent_cards: list[AgentCard] = []
             if not addresses:
+                if self._status_callback:
+                    await self._status_callback(
+                        "Warning: No emergency services registered",
+                    )
+                if self._message_callback:
+                    await self._message_callback(
+                        "[WARNING] No emergency services are currently "
+                        "available in the system.",
+                    )
                 return agent_cards
 
             async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as httpx_client:
@@ -231,6 +247,13 @@ class EmergencyOperatorAgent:
                                 f"Received response from {agent_name}",
                             )
 
+                        # Send message callback confirming dispatch
+                        if self._message_callback:
+                            await self._message_callback(
+                                f"\u2713 Dispatched: {agent_name} has been "
+                                f"notified and is responding",
+                            )
+
                         logger.info(
                             "Peer %s responded to context_id=%s with status=%s",
                             agent_name,
@@ -248,6 +271,7 @@ class EmergencyOperatorAgent:
         context: RequestContext,
         context_id: str,
         status_callback: StatusCallback | None = None,
+        message_callback: MessageCallback | None = None,
     ) -> str:
         """Process the caller interaction and return the model response.
 
@@ -256,6 +280,8 @@ class EmergencyOperatorAgent:
             context_id: Guaranteed non-null context ID (created by executor)
             status_callback: Optional callback for sending status updates
                 during execution
+            message_callback: Optional callback for sending intermediate
+                text messages during execution
 
         Returns:
             Agent response text
@@ -267,12 +293,19 @@ class EmergencyOperatorAgent:
             context=context,
         )
 
-        # Set status callback for tools to use
+        # Set callbacks for tools to use
         self._status_callback = status_callback
+        self._message_callback = message_callback
 
         # Report initial triage status
         if status_callback:
             await status_callback("Assessing emergency situation...")
+        
+        if message_callback:
+            await message_callback(
+                "\ud83d\udea8 Emergency call received. Analyzing situation "
+                "and dispatching appropriate services...",
+            )
 
         # Use the context_id provided by the executor for peer messaging
         with peer_message_context(context_id=context_id):
@@ -282,8 +315,9 @@ class EmergencyOperatorAgent:
                 session=session,
             )
 
-        # Clear callback after execution
+        # Clear callbacks after execution
         self._status_callback = None
+        self._message_callback = None
 
         response_text: str = result.final_output_as(
             cls=str,

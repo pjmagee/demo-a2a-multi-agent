@@ -32,9 +32,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Manage agent registration lifecycle."""
     agent_card = build_agent_card(base_url=BASE_URL)
     logger.info("Counter Agent starting at %s", BASE_URL)
-    await register_with_registry(BASE_URL, agent_card)
+    
+    # Register with the A2A Registry on startup
+    registered = await register_with_registry(
+        agent_address=BASE_URL,
+        agent_card=agent_card,
+    )
+    if registered:
+        logger.info("Successfully registered with A2A Registry")
+    else:
+        logger.warning("Failed to register with A2A Registry")
+    
     yield
-    await unregister_from_registry(BASE_URL)
+    
+    # Unregister from the A2A Registry on shutdown
+    logger.info("Counter Agent shutting down...")
+    unregistered = await unregister_from_registry(agent_address=BASE_URL)
+    if unregistered:
+        logger.info("Successfully unregistered from A2A Registry")
+    else:
+        logger.warning("Failed to unregister from A2A Registry")
 
 
 def _create_application() -> FastAPI:

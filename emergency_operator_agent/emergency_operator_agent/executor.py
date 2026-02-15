@@ -119,11 +119,17 @@ class OperatorAgentExecutor(AgentExecutor):
         )
 
         try:
-            # Invoke agent with guaranteed context_id and status callback
+            # Invoke agent with guaranteed context_id and callbacks
             response_text: str = await self.agent.invoke(
                 context=context,
                 context_id=context_id,
                 status_callback=lambda msg: self._on_agent_status(
+                    event_queue=event_queue,
+                    task_id=task_id,
+                    context_id=context_id,
+                    message=msg,
+                ),
+                message_callback=lambda msg: self._on_agent_message(
                     event_queue=event_queue,
                     task_id=task_id,
                     context_id=context_id,
@@ -191,6 +197,35 @@ class OperatorAgentExecutor(AgentExecutor):
             context_id=context_id,
             state=TaskState.working,
             message=message,
+        )
+
+    async def _on_agent_message(
+        self,
+        event_queue: EventQueue,
+        task_id: str,
+        context_id: str,
+        message: str,
+    ) -> None:
+        """Handle intermediate text messages from the agent during execution.
+
+        Args:
+            event_queue: The event queue
+            task_id: The task ID
+            context_id: The context ID
+            message: Text message from the agent
+
+        """
+        logger.info(
+            "Sending intermediate message task_id=%s message=%s",
+            task_id,
+            message,
+        )
+        await event_queue.enqueue_event(
+            event=new_agent_text_message(
+                context_id=context_id,
+                text=message,
+                task_id=task_id,
+            ),
         )
 
     @override

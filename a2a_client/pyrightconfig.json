@@ -1,0 +1,17 @@
+{
+  "include": ["a2a_client"],
+  "exclude": ["**/__pycache__", "**/.venv"],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.13",
+  "pythonPlatform": "All",
+  "typeCheckingMode": "basic",
+  "executionEnvironments": [
+    {
+      "root": "a2a_client",
+      "pythonVersion": "3.13",
+      "pythonPlatform": "All",
+      "extraPaths": []
+    }
+  ]
+}

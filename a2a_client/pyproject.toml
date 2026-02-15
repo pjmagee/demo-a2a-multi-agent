@@ -1,0 +1,33 @@
+[project]
+name = "a2a-client"
+version = "0.1.0"
+description = "Custom A2A SSE Client for testing agent streaming"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "httpx",
+  "httpx-sse",
+  "rich",
+  "typer",
+]
+
+[tool.uv]
+package = true
+
+[dependency-groups]
+dev = [
+  "ruff",
+]
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "CPY",
+  "D417",
+  "D418",
+  "D419",
+  "DOC",
+]

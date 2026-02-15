@@ -50,7 +50,7 @@ async def register_with_registry(
             )
             return True
     except Exception as exc:
-        logger.error(
+        logger.exception(
             "Failed to register agent at %s with registry: %s",
             agent_address,
             exc,
