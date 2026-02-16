@@ -70,22 +70,32 @@ async def load_peer_addresses_from_registry(
     """
     url = registry_url or REGISTRY_URL
     endpoint = f"{url}/agents"
+    
+    logger.info("Attempting to load peer addresses from registry: %s", endpoint)
 
     try:
-        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+        logger.info("Creating httpx.AsyncClient for registry call...")
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT, verify=False) as client:
+            logger.info("Sending GET request to %s...", endpoint)
             response = await client.get(endpoint)
+            logger.info(
+                "Received response from registry: status=%d, size=%d bytes",
+                response.status_code,
+                len(response.content),
+            )
             response.raise_for_status()
             data: dict[str, Any] = response.json()
             agents: list[dict[str, Any]] = data.get("agents", [])
             addresses = [agent["address"] for agent in agents]
             filtered = _filter_self_address(addresses)
-            logger.debug(
-                "Loaded %d peer addresses from registry",
+            logger.info(
+                "Loaded %d peer addresses from registry (total agents: %d)",
                 len(filtered),
+                len(agents),
             )
             return filtered
     except Exception as exc:  # noqa: BLE001
-        logger.warning(
+        logger.exception(
             "Failed to load addresses from registry at %s: %s",
             url,
             exc,

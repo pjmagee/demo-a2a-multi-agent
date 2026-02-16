@@ -1,14 +1,21 @@
 """A2A SSE Client with streaming support."""
 
-import json
-import sys
 from typing import Any
 from uuid import uuid4
 
 import httpx
-from httpx_sse import connect_sse
+from a2a.client import A2ACardResolver, A2AClient
+from a2a.types import (
+    Message,
+    MessageSendParams,
+    Part,
+    Role,
+    SendStreamingMessageRequest,
+    SendStreamingMessageSuccessResponse,
+    TaskStatusUpdateEvent,
+    TextPart,
+)
 from rich.console import Console
-from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 
@@ -16,21 +23,63 @@ console = Console()
 
 
 class A2ASSEClient:
-    """Custom A2A client that properly handles SSE streaming."""
+    """A2A client using the official A2A SDK."""
 
-    def __init__(self, base_url: str, timeout: int = 300) -> None:
+    MAX_CONTENT_LENGTH = 100
+
+    def __init__(self, base_url: str, timeout: int = 300, verify_ssl: bool = True) -> None:
         """Initialize the A2A SSE client.
 
         Args:
             base_url: Base URL of the A2A agent
             timeout: Request timeout in seconds
+            verify_ssl: Whether to verify SSL certificates
 
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.verify_ssl = verify_ssl
         self.events: list[dict[str, Any]] = []
 
-    def send_message(self, message: str, context_id: str | None = None) -> None:
+    def _extract_event_content(self, event: Any) -> str:
+        """Extract content from event using pattern matching.
+
+        Args:
+            event: Event object from SSE stream
+
+        Returns:
+            Extracted content string
+
+        """
+        # Try to access the root if wrapped
+        unwrapped = getattr(event, "root", event)
+
+        match unwrapped:
+            case SendStreamingMessageSuccessResponse(result=Message(parts=parts)):
+                # Message with text parts
+                return " ".join(
+                    part.root.text
+                    for part in parts
+                    if isinstance(part.root, TextPart)
+                )
+            case SendStreamingMessageSuccessResponse(
+                result=TaskStatusUpdateEvent(status=task_status),
+            ):
+                # Task status update
+                state_text = f"[{task_status.state.value.upper()}]"
+                if task_status.message and task_status.message.parts:
+                    msg = " ".join(
+                        p.root.text
+                        for p in task_status.message.parts
+                        if isinstance(p.root, TextPart)
+                    )
+                    return f"{state_text} {msg}"
+                return state_text
+            case _:
+                # Fallback for unknown event types
+                return str(event)
+
+    async def send_message(self, message: str, context_id: str | None = None) -> None:
         """Send a message to the agent and stream SSE responses.
 
         Args:
@@ -38,113 +87,109 @@ class A2ASSEClient:
             context_id: Optional context ID for conversation continuity
 
         """
-        context_id = context_id or str(uuid4())
-        task_id = str(uuid4())
+        context_id = context_id or uuid4().hex
 
         console.print(
             Panel(
                 f"[bold cyan]Sending to:[/bold cyan] {self.base_url}\n"
                 f"[bold cyan]Message:[/bold cyan] {message}\n"
-                f"[bold cyan]Context ID:[/bold cyan] {context_id}\n"
-                f"[bold cyan]Task ID:[/bold cyan] {task_id}",
+                f"[bold cyan]Context ID:[/bold cyan] {context_id}",
                 title="[bold green]A2A Request",
                 border_style="green",
             ),
         )
 
-        request_data = {
-            "jsonrpc": "2.0",
-            "method": "message/send",
-            "id": task_id,
-            "params": {
-                "contextId": context_id,
-                "message": {
-                    "role": "user",
-                    "parts": [{"type": "text", "text": message}],
-                },
-            },
-        }
-
         # Create event table for live updates
         table = Table(title="SSE Events Stream", show_header=True, header_style="bold")
-        table.add_column("Type", style="cyan", width=15)
+        table.add_column("#", style="dim", width=5)
+        table.add_column("Event Type", style="cyan", width=20)
         table.add_column("Content", style="white", width=80)
-        table.add_column("Timestamp", style="dim", width=20)
 
-        try:
-            with httpx.Client(timeout=self.timeout) as client:
-                console.print("\n[yellow]Opening SSE connection...[/yellow]")
+        async with httpx.AsyncClient(
+            timeout=self.timeout,
+            verify=self.verify_ssl,
+        ) as httpx_client:
+            console.print("\n[yellow]Resolving agent card...[/yellow]")
 
-                with connect_sse(
-                    client,
-                    "POST",
-                    f"{self.base_url}/message/send",
-                    json=request_data,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Accept": "text/event-stream",
-                    },
-                ) as event_source:
-                    console.print("[green]✓ SSE connection established[/green]\n")
+            resolver = A2ACardResolver(
+                httpx_client=httpx_client,
+                base_url=self.base_url,
+            )
+            agent_card = await resolver.get_agent_card()
 
-                    with Live(table, refresh_per_second=4, console=console) as live:
-                        for sse_event in event_source.iter_sse():
-                            # Parse the SSE event
-                            event_type = sse_event.event or "message"
-                            event_data = sse_event.data
+            console.print(f"[green]✓ Connected to: {agent_card.name}[/green]")
+            streaming_status = agent_card.capabilities.streaming
+            console.print(
+                f"[dim]Streaming supported: {streaming_status}[/dim]\n",
+            )
 
-                            # Store event
-                            event_record = {
-                                "type": event_type,
-                                "data": event_data,
-                                "id": sse_event.id,
-                            }
-                            self.events.append(event_record)
+            client = A2AClient(httpx_client=httpx_client, agent_card=agent_card)
 
-                            # Try to parse as JSON for better display
-                            try:
-                                parsed_data = json.loads(event_data)
-                                display_data = json.dumps(parsed_data, indent=2)
-                            except (json.JSONDecodeError, TypeError):
-                                display_data = event_data
+            request = SendStreamingMessageRequest(
+                id=uuid4().hex,
+                jsonrpc="2.0",
+                method="message/stream",
+                params=MessageSendParams(
+                    message=Message(
+                        context_id=context_id,
+                        role=Role.user,
+                        message_id=uuid4().hex,
+                        parts=[Part(root=TextPart(kind="text", text=message))],
+                    ),
+                ),
+            )
 
-                            # Color-code based on event type
-                            if event_type == "status":
-                                row_style = "yellow"
-                            elif event_type == "message":
-                                row_style = "green"
-                            elif event_type == "error":
-                                row_style = "red"
-                            else:
-                                row_style = "white"
+            console.print("[yellow]Streaming events...[/yellow]\n")
 
-                            # Add row to table
-                            table.add_row(
-                                f"[{row_style}]{event_type}[/{row_style}]",
-                                display_data[:200] + "..." if len(display_data) > 200 else display_data,
-                                sse_event.id or "",
-                            )
-                            live.update(table)
+            event_count = 0
+            async for event in client.send_message_streaming(request=request):
+                event_count += 1
 
-                console.print(
-                    f"\n[green]✓ Stream completed. Received {len(self.events)} events[/green]",
+                # Store event
+                event_record = {"event": event}
+                self.events.append(event_record)
+
+                # Debug: Print raw event structure
+                console.print(f"\n[dim]--- RAW EVENT {event_count} ---[/dim]")
+                console.print(f"[dim]{event}[/dim]")
+                console.print(f"[dim]--- END RAW EVENT {event_count} ---[/dim]\n")
+
+                # Extract content and determine display properties
+                event_type = type(event).__name__
+                content = self._extract_event_content(event)
+
+                # Determine row styling based on event type using pattern matching
+                unwrapped = getattr(event, "root", event)
+                match unwrapped:
+                    case SendStreamingMessageSuccessResponse(
+                        result=TaskStatusUpdateEvent(),
+                    ):
+                        row_style = "yellow"
+                    case SendStreamingMessageSuccessResponse(result=Message()):
+                        row_style = "green"
+                    case _:
+                        row_style = "white"
+
+                # Truncate content if too long
+                display_content = (
+                    f"{content[:self.MAX_CONTENT_LENGTH]}..."
+                    if len(content) > self.MAX_CONTENT_LENGTH
+                    else content
                 )
 
-        except httpx.TimeoutException:
-            console.print("[red]✗ Request timed out[/red]", file=sys.stderr)
-            raise
-        except httpx.ConnectError as e:
-            console.print(
-                f"[red]✗ Connection error: {e}[/red]",
-                file=sys.stderr,
+                # Add row to table
+                table.add_row(
+                    str(event_count),
+                    f"[{row_style}]{event_type}[/{row_style}]",
+                    display_content,
+                )
+                console.print(table)
+
+            event_count_msg = (
+                f"\n[green]✓ Stream completed. "
+                f"Received {len(self.events)} events[/green]"
             )
-            raise
-        except Exception as e:
-            console.print(
-                f"[red]✗ Unexpected error: {e}[/red]",
-                file=sys.stderr,
-            )
-            raise
+            console.print(event_count_msg)
 
     def get_events(self) -> list[dict[str, Any]]:
         """Get all received events.
@@ -171,8 +216,9 @@ class A2ASSEClient:
 
         # Count events by type
         event_counts: dict[str, int] = {}
-        for event in self.events:
-            event_type = event["type"]
+        for event_record in self.events:
+            event = event_record["event"]
+            event_type = type(event).__name__
             event_counts[event_type] = event_counts.get(event_type, 0) + 1
 
         for event_type, count in event_counts.items():

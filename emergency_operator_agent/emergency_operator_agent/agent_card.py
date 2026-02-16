@@ -14,9 +14,9 @@ def build_agent_card(base_url: str) -> AgentCard:
         default_output_modes=["text"],
         url=base_url,
         capabilities=AgentCapabilities(
-            streaming=False,
+            streaming=True,
             push_notifications=False,
-            state_transition_history=False,
+            state_transition_history=True,
         ),
         skills=[
             AgentSkill(

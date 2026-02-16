@@ -1,6 +1,7 @@
 """Command-line interface for A2A SSE Client."""
 
-from typing import Annotated, Optional
+import asyncio
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -35,7 +36,7 @@ def send(
         ),
     ] = "fire and injuries at 170 London Road",
     context_id: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--context-id",
             "-c",
@@ -50,13 +51,28 @@ def send(
             help="Request timeout in seconds",
         ),
     ] = 300,
+    no_verify_ssl: Annotated[
+        bool,
+        typer.Option(
+            "--no-verify-ssl",
+            "-k",
+            help="Disable SSL certificate verification (for testing with self-signed certs)",
+        ),
+    ] = False,
 ) -> None:
     """Send a message to an A2A agent and stream SSE responses."""
-    client = A2ASSEClient(base_url=agent_url, timeout=timeout)
+
+    async def run_client() -> None:
+        client = A2ASSEClient(
+            base_url=agent_url,
+            timeout=timeout,
+            verify_ssl=not no_verify_ssl,
+        )
+        await client.send_message(message=message, context_id=context_id)
+        client.print_summary()
 
     try:
-        client.send_message(message=message, context_id=context_id)
-        client.print_summary()
+        asyncio.run(run_client())
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted by user[/yellow]")
         raise typer.Exit(code=130) from None

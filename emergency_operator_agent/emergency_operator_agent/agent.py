@@ -103,13 +103,16 @@ class EmergencyOperatorAgent:
         @function_tool
         async def list_agents() -> list[AgentCard]:
             """List all available agents."""
+            logger.info("list_agents tool called")
             if self._status_callback:
+                logger.info("Calling status_callback: Checking available emergency services...")
                 await self._status_callback(
                     "Checking available emergency services...",
                 )
 
             # Fetch peer addresses from registry
             addresses = await load_peer_addresses_from_registry()
+            logger.info("Found %d addresses from registry", len(addresses))
 
             agent_cards: list[AgentCard] = []
             if not addresses:

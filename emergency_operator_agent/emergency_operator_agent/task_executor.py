@@ -112,26 +112,38 @@ class TaskOrchestratedExecutor(AgentExecutor):
         try:
             # Phase 1: Create task plan
             user_message = context.get_user_input()
+            logger.error("❌ TRACE: Phase 1 starting for task_id=%s", task_id)
             task = await self.orchestrator.create_task_plan(
                 task_id=task_id,
                 context_id=context_id,
                 user_message=user_message,
                 event_queue=event_queue,
             )
+            logger.error(
+                "❌ TRACE: Phase 1 complete - %d steps for task_id=%s",
+                len(task.steps),
+                task_id,
+            )
 
             # Phase 2: Execute task plan step-by-step
+            logger.error("❌ TRACE: Phase 2 starting for task_id=%s", task_id)
             await self.orchestrator.execute_task(
                 task=task,
                 event_queue=event_queue,
             )
+            logger.error("❌ TRACE: Phase 2 complete for task_id=%s", task_id)
 
             # Send final completion status
+            logger.error(
+                "❌ TRACE: Sending final status for task_id=%s",
+                task_id,
+            )
             await self._send_status_update(
                 event_queue=event_queue,
                 task_id=task_id,
                 context_id=context_id,
                 state=TaskState.completed,
-                message="Emergency dispatch completed",
+                message="[COMPLETE] Emergency dispatch workflow finished",
                 final=True,
             )
 

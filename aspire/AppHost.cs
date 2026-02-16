@@ -62,11 +62,13 @@ IResourceBuilder<IResourceWithEndpoints> AddPythonAgent(
         var pythonAgent = builder
             .AddUvicornApp(name, $"../{folder}", $"{folder}.app:app")
             .WithUv() // Automatically runs 'uv sync' before starting
-            .WithEnvironment("HOST", "127.0.0.1")
-            .WithEnvironment("PORT", port.ToString())
-            .WithEnvironment("BASE_URL", $"http://localhost:{port.ToString()}")
-            .WithEnvironment("A2A_REGISTRY_URL", "http://localhost:8090")
+            .WithEnvironment("HOST", "0.0.0.0")
             .WithEnvironment("OPENAI_API_KEY", openaiKey);
+
+        // Use Aspire's endpoint references instead of hardcoded URLs
+        pythonAgent
+            .WithEnvironment("BASE_URL", pythonAgent.GetEndpoint("http"))
+            .WithEnvironment("A2A_REGISTRY_URL", registryEndpoint.GetEndpoint("http"));
 
         pythonAgent.WaitFor(registryEndpoint);
         return pythonAgent;
@@ -165,9 +167,10 @@ var counter = AddPythonAgent(
 );
 
 // Backend API
+IResourceBuilder<IResourceWithEndpoints> backend;
 if (useDocker)
 {
-    var backend = builder
+    backend = builder
         .AddDockerfile("backend", "..", "backend/Dockerfile")
         .WithHttpEndpoint(port: 8100, targetPort: 8100, name: "http")
         .WithEnvironment("HOST", "0.0.0.0")
@@ -179,15 +182,16 @@ if (useDocker)
 }
 else
 {
-    var backend = builder
+    var backendApp = builder
         .AddUvicornApp("backend", "../backend", "webapp_backend.app:app")
         .WithUv()
-        .WithEnvironment("HOST", "127.0.0.1")
-        .WithEnvironment("PORT", "8100")
+        .WithEnvironment("HOST", "0.0.0.0")
         .WithEnvironment("WEBAPP_USE_REGISTRY", "true")
-        .WithEnvironment("WEBAPP_REGISTRY_URL", "http://localhost:8090")
         .WithEnvironment("WEBAPP_DISABLE_AUTH", "true")
-        .WithEnvironment("WEBAPP_ALLOW_ORIGINS", "http://localhost:3000");
+        .WithEnvironment("WEBAPP_ALLOW_ORIGINS", "*")
+        .WithEnvironment("WEBAPP_REGISTRY_URL", registry.GetEndpoint("http"));
+    
+    backend = backendApp;
 }
 
 // A2A Inspector - Build from Git submodule

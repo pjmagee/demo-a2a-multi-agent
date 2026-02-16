@@ -1,8 +1,9 @@
 """Task-based orchestration for emergency dispatch workflow."""
 
-import asyncio
 import logging
+import os
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import httpx
@@ -17,6 +18,8 @@ from a2a.types import (
     SendMessageRequest,
     SendMessageResponse,
     TaskState,
+    TaskStatus,
+    TaskStatusUpdateEvent,
     TextPart,
 )
 from a2a.utils import new_agent_text_message
@@ -119,14 +122,20 @@ class EmergencyTaskOrchestrator:
         """
         if EmergencyTaskOrchestrator._class_agent_cache is not None:
             return EmergencyTaskOrchestrator._class_agent_cache
-            
+
         agents: dict[str, AgentCard] = {}
         addresses = await load_peer_addresses_from_registry()
-        
+
+        logger.info(
+            "Loaded %d addresses from registry. A2A_REGISTRY_URL=%s",
+            len(addresses),
+            os.getenv("A2A_REGISTRY_URL", "NOT SET"),
+        )
+
         if not addresses:
             logger.warning("No agents available in registry")
             return agents
-        
+
         # Send initial discovery message to keep EventQueue alive
         if event_queue and task_id and context_id:
             await self._send_message(
@@ -135,7 +144,7 @@ class EmergencyTaskOrchestrator:
                 context_id=context_id,
                 text=f"Discovering {len(addresses)} emergency services...",
             )
-            
+
         async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as httpx_client:
             for idx, agent_address in enumerate(addresses, 1):
                 # Send progress update to keep EventQueue alive
@@ -146,7 +155,7 @@ class EmergencyTaskOrchestrator:
                         context_id=context_id,
                         text=f"Checking service {idx}/{len(addresses)}...",
                     )
-                
+
                 try:
                     resolver = A2ACardResolver(
                         httpx_client=httpx_client,
@@ -165,7 +174,7 @@ class EmergencyTaskOrchestrator:
                         agent_address,
                         exc,
                     )
-                    
+
         EmergencyTaskOrchestrator._class_agent_cache = agents
         logger.info("Cached %d agents from registry", len(agents))
         return agents
@@ -269,15 +278,31 @@ class EmergencyTaskOrchestrator:
         task_id: str,
         context_id: str,
         text: str,
+        final: bool = False,
     ) -> None:
-        """Send a text message via SSE."""
-        await event_queue.enqueue_event(
-            event=new_agent_text_message(
-                context_id=context_id,
-                text=text,
-                task_id=task_id,
-            ),
+        """Send a task status update with a text message.
+        
+        Uses TaskStatusUpdateEvent instead of bare Message to prevent
+        the A2A SDK from treating intermediate messages as final events.
+        """
+        status_message = new_agent_text_message(
+            context_id=context_id,
+            text=text,
+            task_id=task_id,
         )
+
+        status_update = TaskStatusUpdateEvent(
+            task_id=task_id,
+            context_id=context_id,
+            status=TaskStatus(
+                state=TaskState.working,
+                message=status_message,
+                timestamp=datetime.now(UTC).isoformat(),
+            ),
+            final=final,
+        )
+
+        await event_queue.enqueue_event(event=status_update)
 
     async def _dispatch_to_agent(
         self,
@@ -294,7 +319,7 @@ class EmergencyTaskOrchestrator:
                     base_url=agent_address,
                 )
                 agent_card: AgentCard = await resolver.get_agent_card()
-                
+
                 logger.info(
                     "Dispatching to %s at %s with context_id=%s",
                     agent_name,
@@ -380,20 +405,40 @@ class EmergencyTaskOrchestrator:
         )
 
         # Fetch available agents dynamically from registry
-        # Send progress messages to keep EventQueue alive during fetch
+        # Send progress message BEFORE fetch to keep queue alive
+        await self._send_message(
+            event_queue=event_queue,
+            task_id=task_id,
+            context_id=context_id,
+            text="Checking emergency services registry...",
+        )
+
         available_agents = await self._fetch_available_agents(
             event_queue=event_queue,
             task_id=task_id,
             context_id=context_id,
         )
-        
+
+        # Send message AFTER fetch completes
+        await self._send_message(
+            event_queue=event_queue,
+            task_id=task_id,
+            context_id=context_id,
+            text=f"Found {len(available_agents)} emergency services available.",
+        )
+
         if not available_agents:
+            logger.error(
+                "❌ CRITICAL: No agents available, task_id=%s - about to send warning",
+                task_id,
+            )
             await self._send_message(
                 event_queue=event_queue,
                 task_id=task_id,
                 context_id=context_id,
                 text="[WARNING] No emergency services available in the registry.",
             )
+            logger.error("❌ Warning message enqueue completed for task_id=%s", task_id)
             return task
 
         # Match agents based on emergency description
@@ -401,7 +446,7 @@ class EmergencyTaskOrchestrator:
             message=user_message,
             available_agents=available_agents,
         )
-        
+
         # Create dispatch steps for matched agents
         for address, agent_card in matched_agents:
             task.add_step(
@@ -452,39 +497,42 @@ class EmergencyTaskOrchestrator:
 
         """
         if not task.steps:
+            logger.info(
+                "No steps to execute for task_id=%s, sending completion message",
+                task.task_id,
+            )
             await self._send_message(
                 event_queue=event_queue,
                 task_id=task.task_id,
                 context_id=task.context_id,
-                text="No services to dispatch. Call completed.",
+                text="[COMPLETE] No emergency services required. Call handled.",
             )
             return
 
         task.state = TaskState.working
 
-        # Execute each step sequentially
+        # WORKAROUND: Send ALL dispatch announcements BEFORE making any HTTP calls
+        # This prevents A2A SDK's EventQueue from closing during HTTP operations
+        total = len(task.steps)
+        for idx, step in enumerate(task.steps, start=1):
+            progress_text = f"[{idx}/{total}]"
+            await self._send_message(
+                event_queue=event_queue,
+                task_id=task.task_id,
+                context_id=task.context_id,
+                text=f"[PLAN] {progress_text} Will dispatch {step.agent_name}",
+            )
+
+        # Now execute each step sequentially (HTTP calls happen here)
         while not task.is_complete():
             step = task.get_current_step()
             if not step:
                 break
 
-            completed, total = task.get_progress()
-            progress_text = f"[{completed + 1}/{total}]"
-
-            # Notify user we're dispatching
-            await self._send_message(
-                event_queue=event_queue,
-                task_id=task.task_id,
-                context_id=task.context_id,
-                text=(
-                    f"{progress_text} Dispatching {step.agent_name}..."
-                ),
-            )
-
-            # Update step status
+            # Update step status (no event sent here)
             step.status = TaskState.working
 
-            # Dispatch to the agent
+            # Dispatch to the agent (HTTP call)
             response = await self._dispatch_to_agent(
                 agent_name=step.agent_name,
                 agent_address=step.agent_address,
@@ -492,37 +540,16 @@ class EmergencyTaskOrchestrator:
                 context_id=task.context_id,
             )
 
-            # Process response
+            # Update step result based on response
             if response:
                 step.status = TaskState.completed
                 step.response = "Acknowledged"
-                await self._send_message(
-                    event_queue=event_queue,
-                    task_id=task.task_id,
-                    context_id=task.context_id,
-                    text=(
-                        f"[OK] {progress_text} {step.agent_name} "
-                        f"dispatched successfully"
-                    ),
-                )
             else:
                 step.status = TaskState.failed
                 step.error = "Failed to contact agent"
-                await self._send_message(
-                    event_queue=event_queue,
-                    task_id=task.task_id,
-                    context_id=task.context_id,
-                    text=(
-                        f"[FAILED] {progress_text} Failed to dispatch "
-                        f"{step.agent_name}"
-                    ),
-                )
 
             # Move to next step
             task.advance_step()
-
-            # Very small delay for readability (removed longer delay to keep queue alive)
-            await asyncio.sleep(0.1)
 
         # Task complete
         task.state = TaskState.completed
@@ -537,20 +564,26 @@ class EmergencyTaskOrchestrator:
 
         if failed == 0:
             summary = (
-                f"[SUCCESS] All emergency services dispatched successfully "
+                f"[COMPLETE] All emergency services dispatched successfully "
                 f"({successful}/{len(task.steps)})"
             )
         else:
             summary = (
-                f"[WARNING] Dispatch completed with issues: "
+                f"[COMPLETE] Dispatch finished with issues: "
                 f"{successful} successful, {failed} failed"
             )
 
+        logger.info(
+            "Task execution complete, sending summary: task_id=%s summary=%s",
+            task.task_id,
+            summary,
+        )
         await self._send_message(
             event_queue=event_queue,
             task_id=task.task_id,
             context_id=task.context_id,
             text=summary,
+            final=True,
         )
 
         # Clean up
