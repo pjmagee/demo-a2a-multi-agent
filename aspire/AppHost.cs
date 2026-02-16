@@ -200,18 +200,20 @@ if (useDocker)
 }
 else
 {
-    // Native mode - build frontend assets, then run backend to serve them
-    // The build process will exit after completion, which is expected
-    var inspectorFrontendBuild = builder.AddNodeApp(
-        "a2a-inspector-build",
-        "../a2a-inspector/frontend",
-        "build"
-    );
+    // Native mode - build frontend assets once, then watch for changes
+    // Run initial build without watch to ensure script.js exists before backend starts
+    var inspectorFrontendBuild = builder
+        .AddJavaScriptApp("a2a-inspector-build", "../a2a-inspector/frontend")
+        .WithNpm(install: true)
+        .WithRunScript("build");
 
+    // Run from workspace root to ensure all dependencies are installed
+    // Use PYTHONPATH to prioritize local backend modules over site-packages
     var inspector = builder
         .AddUvicornApp("a2a-inspector", "../a2a-inspector", "backend.app:app")
         .WithUv()
         .WithEnvironment("PORT", "8080")
+        .WithEnvironment("PYTHONPATH", "backend")
         .WaitFor(inspectorFrontendBuild);
 }
 
