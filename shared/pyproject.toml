@@ -8,6 +8,8 @@ dependencies = [
   "a2a-sdk[all]",
   "openai-agents",
   "httpx",
+  "motor>=3.6.0",
+  "pymongo>=4.10.0",
   "opentelemetry-api",
   "opentelemetry-sdk",
   "opentelemetry-instrumentation-fastapi",

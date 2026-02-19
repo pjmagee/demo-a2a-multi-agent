@@ -11,6 +11,14 @@ var useDocker = builder.Configuration["USE_DOCKER"] != "false";
 // OpenAI API Key parameter - injected into all agents
 var openaiApiKey = builder.AddParameter("openai-api-key", secret: true);
 
+// MongoDB - used by game-news-agent for task persistence
+var mongodb = builder
+    .AddMongoDB("mongodb")
+    .WithDataVolume()
+    .WithLifetime(ContainerLifetime.Persistent);
+
+var mongoDatabase = mongodb.AddDatabase("game-news-agent-db");
+
 // A2A Registry - can run in Docker or natively
 IResourceBuilder<IResourceWithEndpoints> registry;
 if (useDocker)
@@ -165,6 +173,53 @@ var counter = AddPythonAgent(
     registry,
     useDocker
 );
+
+// Tester Agent REPL - Interactive console for testing agents
+// Note: This runs in its own terminal - stdin/stdout not accessible via Aspire dashboard
+// Access it via: cd tester_agent && uv run python -m tester_agent.repl
+if (!useDocker)
+{
+    builder
+        .AddPythonExecutable("tester-repl", "../tester_agent", "python")
+        .WithArgs("-m", "tester_agent.repl")
+        .WithUv()
+        .WithEnvironment("OPENAI_API_KEY", openaiApiKey)
+        .WithEnvironment("A2A_REGISTRY_URL", registry.GetEndpoint("http"))
+        .WithEnvironment("BASE_URL", "http://localhost:8017")
+        .WaitFor(registry)
+        .ExcludeFromManifest(); // Don't deploy interactive REPL to production
+}
+
+// Game News Agent - with MongoDB task persistence
+IResourceBuilder<IResourceWithEndpoints> gameNews;
+if (useDocker)
+{
+    gameNews = builder
+        .AddDockerfile("game-news-agent", "..", "game_news_agent/Dockerfile")
+        .WithHttpEndpoint(targetPort: 8021, name: "http")
+        .WithEnvironment("HOST", "0.0.0.0")
+        .WithEnvironment("BASE_URL", "http://game-news-agent:8021")
+        .WithEnvironment("INTERNAL_URL", "http://game-news-agent:8021")
+        .WithEnvironment("A2A_REGISTRY_URL", registry.GetEndpoint("http"))
+        .WithEnvironment("OPENAI_API_KEY", openaiApiKey)
+        .WithReference(mongoDatabase)
+        .WaitFor(registry)
+        .WaitFor(mongodb);
+}
+else
+{
+    gameNews = builder
+        .AddUvicornApp("game-news-agent", "../game_news_agent", "game_news_agent.app:app")
+        .WithUv()
+        .WithEnvironment("HOST", "0.0.0.0")
+        .WithEnvironment("OPENAI_API_KEY", openaiApiKey)
+        .WithEnvironment("BASE_URL", builder.ExecutionContext.IsPublishMode ? 
+            "http://game-news-agent" : "http://localhost:8021")
+        .WithEnvironment("A2A_REGISTRY_URL", registry.GetEndpoint("http"))
+        .WithReference(mongoDatabase)
+        .WaitFor(registry)
+        .WaitFor(mongodb);
+}
 
 // Backend API
 IResourceBuilder<IResourceWithEndpoints> backend;

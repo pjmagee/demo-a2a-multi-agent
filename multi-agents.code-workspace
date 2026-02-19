@@ -33,6 +33,10 @@
 			"path": "greetings_agent"
 		},
 		{
+			"name": "game_news_agent",
+			"path": "game_news_agent"
+		},
+		{
 			"name": "counter_agent",
 			"path": "counter_agent"
 		},

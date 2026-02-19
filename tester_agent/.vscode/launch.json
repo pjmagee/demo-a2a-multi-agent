@@ -9,9 +9,7 @@
       "cwd": "${workspaceFolder}",
       "python": "${workspaceFolder}/.venv/Scripts/python.exe",
       "justMyCode": true,
-      "env": {
-        "A2A_REGISTRY_URL": "http://localhost:8090"
-      }
+      "envFile": "${workspaceFolder}/.env"
     },
     {
       "name": "Tester Agent REPL",
@@ -21,8 +19,9 @@
       "cwd": "${workspaceFolder}",
       "python": "${workspaceFolder}/.venv/Scripts/python.exe",
       "justMyCode": true,
+      "envFile": "${workspaceFolder}/.env",
       "env": {
-        "A2A_REGISTRY_URL": "http://localhost:8090"
+        "A2A_REGISTRY_URL": "https://localhost:49287"
       }
     }
   ]

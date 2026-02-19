@@ -170,6 +170,30 @@
       "justMyCode": true
     },
     {
+      "name": "Game News Agent",
+      "consoleName": "Game News Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "game_news_agent.app",
+      "cwd": "${workspaceFolder:game_news_agent}",
+      "python": "${workspaceFolder:game_news_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:game_news_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Game News Agent REPL",
+      "consoleName": "Game News Agent REPL",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "game_news_agent.repl",
+      "cwd": "${workspaceFolder:game_news_agent}",
+      "python": "${workspaceFolder:game_news_agent}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder:game_news_agent}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
       "name": "Tester Agent",
       "consoleName": "Tester Agent",
       "type": "debugpy",

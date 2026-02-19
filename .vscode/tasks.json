@@ -125,6 +125,19 @@
       }
     },
     {
+      "label": "game_news_agent: uv sync",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "sync",
+        "--group",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/game_news_agent"
+      }
+    },
+    {
       "label": "shared: uv sync",
       "type": "shell",
       "command": "uv",
@@ -248,7 +261,8 @@
         "weather_agent: uv sync",
         "emergency_operator_agent: uv sync",
         "tester_agent: uv sync",
-        "greetings_agent: uv sync"
+        "greetings_agent: uv sync",
+        "game_news_agent: uv sync"
       ]
     },
     {

@@ -5,6 +5,7 @@ Custom A2A client for testing Server-Sent Events (SSE) streaming from A2A agents
 ## Purpose
 
 This client is designed to:
+
 - Stream SSE events from A2A agents in real-time
 - Provide visual feedback on message delivery
 - Debug connection and streaming issues

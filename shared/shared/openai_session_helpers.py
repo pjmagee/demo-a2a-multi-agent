@@ -41,7 +41,9 @@ def get_or_create_session(
 
     """
     if context_id not in sessions:
-        sessions[context_id] = SQLiteSession(session_id=context_id)
+        # SQLiteSession creates default SessionSettings, making session_settings
+        # non-None at runtime, but protocol marks it as invariant Optional
+        sessions[context_id] = SQLiteSession(session_id=context_id)  # type: ignore[assignment]
     return sessions[context_id]
 
 

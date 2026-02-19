@@ -1,0 +1,180 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GameReportResponse",
+  "description": "Response schema for a generated gaming report",
+  "type": "object",
+  "required": ["report_markdown", "sections", "references", "generated_at", "fact_check_passed"],
+  "properties": {
+    "report_markdown": {
+      "type": "string",
+      "description": "Complete gaming report in markdown format"
+    },
+    "sections": {
+      "type": "object",
+      "description": "Structured sections of the report",
+      "required": ["highly_anticipated", "recently_released", "upcoming_games", "poorly_received"],
+      "properties": {
+        "highly_anticipated": {
+          "type": "array",
+          "description": "Highly anticipated upcoming games",
+          "items": {
+            "$ref": "#/definitions/AnticipatedGame"
+          }
+        },
+        "recently_released": {
+          "type": "array",
+          "description": "Recently released games with ratings",
+          "items": {
+            "$ref": "#/definitions/ReleasedGame"
+          }
+        },
+        "upcoming_games": {
+          "type": "array",
+          "description": "Upcoming games with expected release dates",
+          "items": {
+            "$ref": "#/definitions/UpcomingGame"
+          }
+        },
+        "poorly_received": {
+          "type": "array",
+          "description": "Poorly received or controversial games",
+          "items": {
+            "$ref": "#/definitions/PoorlyReceivedGame"
+          }
+        }
+      }
+    },
+    "references": {
+      "type": "array",
+      "description": "List of sources and references used in the report",
+      "items": {
+        "$ref": "#/definitions/Reference"
+      }
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the report was generated"
+    },
+    "fact_check_passed": {
+      "type": "boolean",
+      "description": "Whether the report passed fact-checking validation"
+    },
+    "validation_errors": {
+      "type": "array",
+      "description": "List of validation errors if any occurred",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "definitions": {
+    "AnticipatedGame": {
+      "type": "object",
+      "required": ["name", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Game title"
+        },
+        "expected_release_date": {
+          "type": "string",
+          "description": "Expected release date (may be TBD or approximate)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief description and why it's anticipated"
+        }
+      }
+    },
+    "ReleasedGame": {
+      "type": "object",
+      "required": ["name", "release_date", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Game title"
+        },
+        "release_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Actual release date"
+        },
+        "rating": {
+          "type": "number",
+          "description": "Rating score (e.g., Metacritic or aggregate)",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief description and reception"
+        }
+      }
+    },
+    "UpcomingGame": {
+      "type": "object",
+      "required": ["name", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Game title"
+        },
+        "expected_release_date": {
+          "type": "string",
+          "description": "Expected release date or window"
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief description of the game"
+        }
+      }
+    },
+    "PoorlyReceivedGame": {
+      "type": "object",
+      "required": ["name", "release_date", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Game title"
+        },
+        "release_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Release date"
+        },
+        "rating": {
+          "type": "number",
+          "description": "Low rating score",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "description": {
+          "type": "string",
+          "description": "Why it was poorly received"
+        }
+      }
+    },
+    "Reference": {
+      "type": "object",
+      "required": ["title", "url"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Reference title or source name"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the source"
+        },
+        "accessed_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Date the source was accessed"
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

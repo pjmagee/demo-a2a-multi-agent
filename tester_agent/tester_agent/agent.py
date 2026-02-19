@@ -3,15 +3,19 @@
 import logging
 from typing import ClassVar
 
+import dotenv
 from a2a.server.agent_execution.context import RequestContext
 from agents import Agent, Runner, RunResult, Tool
 from agents.memory.session import Session
 from shared.openai_session_helpers import get_or_create_session
 from shared.peer_tools import (
     default_peer_tools,
+    discovery_tools,
     peer_message_context,
     session_management_tool,
 )
+
+dotenv.load_dotenv()  # Load environment variables from .env file
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 
@@ -25,8 +29,21 @@ class TesterAgent:
         self.agent: Agent[None] = Agent(
             name="Tester Agent",
             instructions=(
-                "You are an A2A testing agent. Verify that every peer agent"
-                " responds correctly by exercising their capabilities."
+                "You are an A2A testing agent. Your goal is to verify that peer agents "
+                "respond correctly by exercising their capabilities.\n\n"
+                "Testing workflow:\n"
+                "1. Use list_agents to discover available agents\n"
+                "2. Use get_agent_card_details to inspect an agent's capabilities:\n"
+                "   - Check input_modes (text/plain, application/json, etc.)\n"
+                "   - Check output_modes\n"
+                "   - Extract schema_urls from skill descriptions\n"
+                "3. If schema_urls are available, use http_get to fetch the JSON schema\n"
+                "4. Send test requests using the appropriate method:\n"
+                "   - send_message for text/plain agents (plain text messages)\n"
+                "   - send_data_message for application/json agents (structured data)\n"
+                "5. Validate responses and report results\n\n"
+                "When testing application/json agents, construct valid JSON payloads "
+                "matching the schema you fetched. For text/plain agents, send plain text."
             ),
             handoffs=[],
             tool_use_behavior="run_llm_again",
@@ -37,8 +54,9 @@ class TesterAgent:
     def _build_tools(self) -> list[Tool]:
         """Build the Tester agent's toolset."""
         peer_tools: list[Tool] = default_peer_tools()
+        discovery: list[Tool] = discovery_tools()
         create_new_session_tool = session_management_tool()
-        return [create_new_session_tool, *peer_tools]
+        return [create_new_session_tool, *peer_tools, *discovery]
 
     async def invoke(self, context: RequestContext, context_id: str) -> str:
         """Invoke the Tester agent with the given context and returns the response.

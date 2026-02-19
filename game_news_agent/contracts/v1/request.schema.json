@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GameReportRequest",
+  "description": "Request schema for generating a gaming report",
+  "type": "object",
+  "required": ["game_genres", "date_from", "date_to", "game_modes"],
+  "properties": {
+    "game_genres": {
+      "type": "array",
+      "description": "List of game genres to include in the report",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "action",
+          "adventure",
+          "rpg",
+          "strategy",
+          "sports",
+          "racing",
+          "simulation",
+          "puzzle",
+          "shooter",
+          "platformer",
+          "fighting",
+          "horror",
+          "survival",
+          "indie"
+        ]
+      }
+    },
+    "date_from": {
+      "type": "string",
+      "format": "date",
+      "description": "Start date for filtering games/articles (ISO 8601 format: YYYY-MM-DD)"
+    },
+    "date_to": {
+      "type": "string",
+      "format": "date",
+      "description": "End date for filtering games/articles (ISO 8601 format: YYYY-MM-DD). Must be >= date_from and within 31 days of date_from."
+    },
+    "game_modes": {
+      "type": "array",
+      "description": "Game modes to filter by",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "online",
+          "offline",
+          "single_player",
+          "multi_player"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

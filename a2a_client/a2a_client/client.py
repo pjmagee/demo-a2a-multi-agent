@@ -1,11 +1,13 @@
 """A2A SSE Client with streaming support."""
 
+import json
 from typing import Any
 from uuid import uuid4
 
 import httpx
 from a2a.client import A2ACardResolver, A2AClient
 from a2a.types import (
+    DataPart,
     Message,
     MessageSendParams,
     Part,
@@ -79,20 +81,45 @@ class A2ASSEClient:
                 # Fallback for unknown event types
                 return str(event)
 
-    async def send_message(self, message: str, context_id: str | None = None) -> None:
+    async def send_message(
+        self,
+        message: str | dict[str, Any],
+        context_id: str | None = None,
+        force_data_part: bool = False,
+    ) -> None:
         """Send a message to the agent and stream SSE responses.
 
         Args:
-            message: Message to send to the agent
+            message: Message to send (string for TextPart, dict for DataPart)
             context_id: Optional context ID for conversation continuity
+            force_data_part: Force using DataPart even for string messages
 
         """
         context_id = context_id or uuid4().hex
 
+        # Determine which Part type to use
+        if isinstance(message, dict) or force_data_part:
+            if isinstance(message, str):
+                # Parse string as JSON if force_data_part is True
+                try:
+                    data = json.loads(message)
+                except json.JSONDecodeError as e:
+                    console.print(f"[red]Failed to parse message as JSON: {e}[/red]")
+                    return
+            else:
+                data = message
+
+            part = Part(root=DataPart(kind="data", data=data))
+            display_message = json.dumps(data, indent=2)[:200]
+        else:
+            part = Part(root=TextPart(kind="text", text=message))
+            display_message = message[:200]
+
         console.print(
             Panel(
                 f"[bold cyan]Sending to:[/bold cyan] {self.base_url}\n"
-                f"[bold cyan]Message:[/bold cyan] {message}\n"
+                f"[bold cyan]Message Type:[/bold cyan] {part.root.kind}\n"
+                f"[bold cyan]Message:[/bold cyan] {display_message}\n"
                 f"[bold cyan]Context ID:[/bold cyan] {context_id}",
                 title="[bold green]A2A Request",
                 border_style="green",
@@ -134,7 +161,7 @@ class A2ASSEClient:
                         context_id=context_id,
                         role=Role.user,
                         message_id=uuid4().hex,
-                        parts=[Part(root=TextPart(kind="text", text=message))],
+                        parts=[part],
                     ),
                 ),
             )
