@@ -30,9 +30,10 @@ logger = logging.getLogger(__name__)
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8021")
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "8021"))
+# Aspire sets ConnectionStrings__<dbname> for MongoDB references
 MONGODB_CONNECTION_STRING = os.getenv(
-    "MONGODB_CONNECTION_STRING",
-    "mongodb://localhost:27017",
+    "ConnectionStrings__game-news-agent-db",
+    os.getenv("GAME_NEWS_AGENT_DB_URI", "mongodb://localhost:27017"),
 )
 
 
@@ -57,7 +58,7 @@ def _create_application() -> FastAPI:
     # Initialize executor
     executor = GameNewsAgentExecutor()
 
-    # Create MongoDB task store
+    # Create MongoDB task store with pymongo native async client
     task_store = MongoDBTaskStore(
         connection_string=MONGODB_CONNECTION_STRING,
         database_name="game_news_agent",

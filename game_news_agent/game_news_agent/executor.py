@@ -51,19 +51,37 @@ class GameNewsAgentExecutor(AgentExecutor):
                 logger.warning("No DataPart found, using text input")
                 user_input_raw = context.get_user_input()
             else:
-                # Parse DataPart JSON
-                user_input_raw = data_part.data.decode("utf-8") if isinstance(data_part.data, bytes) else data_part.data
-                preview = str(user_input_raw)[:200] if isinstance(user_input_raw, str) else str(user_input_raw)[:200]
-                logger.info("Parsed DataPart: %s", preview)
+                # Parse DataPart - data can be dict, str, or bytes
+                logger.info(f"DataPart type: {type(data_part.data)}, value preview: {str(data_part.data)[:200]}")
+                
+                if isinstance(data_part.data, dict):
+                    # Already parsed dict (from A2A SDK)
+                    user_input_raw = data_part.data
+                    logger.info("DataPart contains dict directly")
+                elif isinstance(data_part.data, bytes):
+                    # Decode bytes to string
+                    user_input_raw = data_part.data.decode("utf-8")
+                    logger.info(f"Decoded bytes to string: {user_input_raw[:200]}")
+                elif isinstance(data_part.data, str):
+                    # Already a string
+                    user_input_raw = data_part.data
+                    logger.info(f"DataPart is string: {user_input_raw[:200]}")
+                else:
+                    user_input_raw = str(data_part.data)
+                    logger.warning(f"Unexpected DataPart type {type(data_part.data)}, converted to string")
 
             # Validate request against Pydantic model
             try:
                 if isinstance(user_input_raw, dict):
+                    # Already a dict - use directly
                     request_data = user_input_raw
                 elif isinstance(user_input_raw, str):
+                    # Parse JSON string
+                    if not user_input_raw.strip():
+                        raise ValueError("Empty JSON string")
                     request_data = json.loads(user_input_raw)
                 else:
-                    msg = "Invalid input type"
+                    msg = f"Invalid input type: {type(user_input_raw)}"
                     raise TypeError(msg)
 
                 request = GameReportRequest(**request_data)
@@ -85,9 +103,9 @@ class GameNewsAgentExecutor(AgentExecutor):
                 )
                 return
 
-            # Invoke the LangGraph agent
+            # Invoke the LangGraph agent with the validated request
             logger.info("Invoking LangGraph workflow")
-            response: GameReportResponse = await self.agent.invoke(context, context_id)
+            response: GameReportResponse = await self.agent.invoke(request, context_id)
 
             # Check for validation errors
             if response.validation_errors:

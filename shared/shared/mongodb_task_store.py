@@ -6,11 +6,9 @@ from typing import Any
 
 from a2a.server.tasks.task_store import TaskStore
 from a2a.types import Task, TaskState, TaskStatus
-from motor.motor_asyncio import (  # type: ignore[import-not-found]
-    AsyncIOMotorClient,
-    AsyncIOMotorCollection,
-)
-from pymongo import ASCENDING  # type: ignore[import-not-found]
+from pymongo import ASCENDING, MongoClient
+from pymongo.asynchronous.mongo_client import AsyncMongoClient
+from pymongo.asynchronous.collection import AsyncCollection
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +38,8 @@ class MongoDBTaskStore(TaskStore):
         self.database_name = database_name
         self.collection_name = collection_name
 
-        self.client: AsyncIOMotorClient[Any] | None = None
-        self.collection: AsyncIOMotorCollection[Any] | None = None
+        self.client: AsyncMongoClient | None = None
+        self.collection: AsyncCollection[Any] | None = None
         self._initialized = False
 
     async def _ensure_initialized(self) -> None:
@@ -56,7 +54,7 @@ class MongoDBTaskStore(TaskStore):
         )
 
         # Create client and get collection
-        self.client = AsyncIOMotorClient(self.connection_string)
+        self.client = AsyncMongoClient(self.connection_string)
         if self.client is None:
             msg = "Failed to create MongoDB client"
             raise RuntimeError(msg)
@@ -79,11 +77,12 @@ class MongoDBTaskStore(TaskStore):
         self._initialized = True
         logger.info("MongoDB TaskStore initialized successfully")
 
-    async def get(self, task_id: str) -> Task | None:
+    async def get(self, task_id: str, context_id: str | None = None) -> Task | None:
         """Retrieve a task by ID.
 
         Args:
             task_id: Task identifier
+            context_id: Optional context identifier (for A2A SDK compatibility)
 
         Returns:
             Task object if found, None otherwise
@@ -94,9 +93,14 @@ class MongoDBTaskStore(TaskStore):
             msg = "MongoDB collection not initialized"
             raise RuntimeError(msg)
 
-        task_doc = await self.collection.find_one({"task_id": task_id})
+        # Build query - prioritize task_id, optionally filter by context_id
+        query: dict[str, Any] = {"task_id": task_id}
+        if context_id:
+            query["context_id"] = context_id
+
+        task_doc = await self.collection.find_one(query)
         if not task_doc:
-            logger.debug("Task not found: %s", task_id)
+            logger.debug("Task not found: task_id=%s, context_id=%s", task_id, context_id)
             return None
 
         return self._document_to_task(task_doc)
@@ -115,10 +119,11 @@ class MongoDBTaskStore(TaskStore):
 
         task_doc = self._task_to_document(task)
         now = datetime.now(UTC)
-        
+
+
         # Check if task exists
         existing = await self.collection.find_one({"task_id": task.id})
-        
+
         if existing:
             # Update existing task
             task_doc["updated_at"] = now
@@ -155,7 +160,7 @@ class MongoDBTaskStore(TaskStore):
     async def close(self) -> None:
         """Close MongoDB connection."""
         if self.client:
-            self.client.close()
+            await self.client.close()
             logger.info("MongoDB TaskStore connection closed")
             self._initialized = False
 

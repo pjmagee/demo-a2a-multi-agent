@@ -3,6 +3,9 @@
         "CopilotKit MCP": {
             "url": "https://mcp.copilotkit.ai/sse"
         },
+         "phoenix-docs": {
+            "url": "https://arizeai-433a7140.mintlify.app/mcp"
+        },
         "assistant-ui": {
             "command": "cmd",
             "args": [
@@ -17,6 +20,18 @@
             "type": "stdio",
             "command": "aspire",
             "args": ["mcp", "start"]
+        },
+        "a2a-bridge": {
+            "type": "stdio",
+            "command": "dotnet",
+            "args": [
+                "run",
+                "--project",
+                "mcp_a2a_bridge/McpA2aBridge"
+            ],
+            "env": {
+                "A2A_REGISTRY_URL": "https://localhost:53418"
+            }
         }
     }
 }

@@ -11,6 +11,19 @@ var useDocker = builder.Configuration["USE_DOCKER"] != "false";
 // OpenAI API Key parameter - injected into all agents
 var openaiApiKey = builder.AddParameter("openai-api-key", secret: true);
 
+// RAWG API Key parameter - used by game-news-agent for game data
+var rawgApiKey = builder.AddParameter("rawg-api-key", secret: true);
+
+// Phoenix - Observability platform for LLM tracing and monitoring
+var phoenix = builder
+    .AddDockerfile("phoenix", "../phoenix")
+    .WithHttpEndpoint(port: 6006, targetPort: 6006, name: "ui")
+    .WithEndpoint(port: 4317, targetPort: 4317, name: "otlp", scheme: "grpc")
+    .WithEnvironment("PHOENIX_SQL_ECHO", "false")
+    .WithEnvironment("PHOENIX_WORKING_DIR", "/phoenix-data")
+    .WithVolume("phoenix-data", "/phoenix-data")
+    .WithLifetime(ContainerLifetime.Persistent);
+
 // MongoDB - used by game-news-agent for task persistence
 var mongodb = builder
     .AddMongoDB("mongodb")
@@ -46,6 +59,7 @@ IResourceBuilder<IResourceWithEndpoints> AddPythonAgent(
     int port,
     IResourceBuilder<ParameterResource> openaiKey,
     IResourceBuilder<IResourceWithEndpoints> registryEndpoint,
+    IResourceBuilder<IResourceWithEndpoints> phoenixEndpoint,
     bool useDockerMode
 )
 {
@@ -59,9 +73,12 @@ IResourceBuilder<IResourceWithEndpoints> AddPythonAgent(
             .WithEnvironment("BASE_URL", $"http://{name}:{port.ToString()}")
             .WithEnvironment("INTERNAL_URL", $"http://{name}:{port.ToString()}")
             .WithEnvironment("A2A_REGISTRY_URL", registryEndpoint.GetEndpoint("http"))
-            .WithEnvironment("OPENAI_API_KEY", openaiKey);
+            .WithEnvironment("OPENAI_API_KEY", openaiKey)
+            .WithEnvironment("PHOENIX_COLLECTOR_ENDPOINT", phoenixEndpoint.GetEndpoint("ui"))
+            .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent");
 
         dockerAgent.WaitFor(registryEndpoint);
+        dockerAgent.WaitFor(phoenixEndpoint);
         return dockerAgent;
     }
     else
@@ -71,7 +88,9 @@ IResourceBuilder<IResourceWithEndpoints> AddPythonAgent(
             .AddUvicornApp(name, $"../{folder}", $"{folder}.app:app")
             .WithUv() // Automatically runs 'uv sync' before starting
             .WithEnvironment("HOST", "0.0.0.0")
-            .WithEnvironment("OPENAI_API_KEY", openaiKey);
+            .WithEnvironment("OPENAI_API_KEY", openaiKey)
+            .WithEnvironment("PHOENIX_COLLECTOR_ENDPOINT", phoenixEndpoint.GetEndpoint("ui"))
+            .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent");
 
         // Use Aspire's endpoint references instead of hardcoded URLs
         pythonAgent
@@ -79,6 +98,7 @@ IResourceBuilder<IResourceWithEndpoints> AddPythonAgent(
             .WithEnvironment("A2A_REGISTRY_URL", registryEndpoint.GetEndpoint("http"));
 
         pythonAgent.WaitFor(registryEndpoint);
+        pythonAgent.WaitFor(phoenixEndpoint);
         return pythonAgent;
     }
 }
@@ -91,6 +111,7 @@ var firebrigade = AddPythonAgent(
     8011,
     openaiApiKey,
     registry,
+    phoenix,
     useDocker
 );
 
@@ -101,6 +122,7 @@ var police = AddPythonAgent(
     8012,
     openaiApiKey,
     registry,
+    phoenix,
     useDocker
 );
 
@@ -111,6 +133,7 @@ var mi5 = AddPythonAgent(
     8013,
     openaiApiKey,
     registry,
+    phoenix,
     useDocker
 );
 
@@ -121,6 +144,7 @@ var ambulance = AddPythonAgent(
     8014,
     openaiApiKey,
     registry,
+    phoenix,
     useDocker
 );
 
@@ -131,6 +155,7 @@ var weather = AddPythonAgent(
     8015,
     openaiApiKey,
     registry,
+    phoenix,
     useDocker
 );
 
@@ -141,6 +166,7 @@ var operator_agent = AddPythonAgent(
     8016,
     openaiApiKey,
     registry,
+    phoenix,
     useDocker
 );
 
@@ -151,6 +177,7 @@ var tester = AddPythonAgent(
     8017,
     openaiApiKey,
     registry,
+    phoenix,
     useDocker
 );
 
@@ -161,6 +188,7 @@ var greetings = AddPythonAgent(
     8018,
     openaiApiKey,
     registry,
+    phoenix,
     useDocker
 );
 
@@ -171,6 +199,7 @@ var counter = AddPythonAgent(
     8020,
     openaiApiKey,
     registry,
+    phoenix,
     useDocker
 );
 
@@ -186,7 +215,10 @@ if (!useDocker)
         .WithEnvironment("OPENAI_API_KEY", openaiApiKey)
         .WithEnvironment("A2A_REGISTRY_URL", registry.GetEndpoint("http"))
         .WithEnvironment("BASE_URL", "http://localhost:8017")
+        .WithEnvironment("PHOENIX_COLLECTOR_ENDPOINT", phoenix.GetEndpoint("ui"))
+        .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent")
         .WaitFor(registry)
+        .WaitFor(phoenix)
         .ExcludeFromManifest(); // Don't deploy interactive REPL to production
 }
 
@@ -202,23 +234,32 @@ if (useDocker)
         .WithEnvironment("INTERNAL_URL", "http://game-news-agent:8021")
         .WithEnvironment("A2A_REGISTRY_URL", registry.GetEndpoint("http"))
         .WithEnvironment("OPENAI_API_KEY", openaiApiKey)
+        .WithEnvironment("RAWG_API_KEY", rawgApiKey)
+        .WithEnvironment("PHOENIX_COLLECTOR_ENDPOINT", phoenix.GetEndpoint("ui"))
+        .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent")
         .WithReference(mongoDatabase)
         .WaitFor(registry)
-        .WaitFor(mongodb);
+        .WaitFor(mongodb)
+        .WaitFor(phoenix);
 }
 else
 {
-    gameNews = builder
+    var gameNewsApp = builder
         .AddUvicornApp("game-news-agent", "../game_news_agent", "game_news_agent.app:app")
         .WithUv()
         .WithEnvironment("HOST", "0.0.0.0")
         .WithEnvironment("OPENAI_API_KEY", openaiApiKey)
-        .WithEnvironment("BASE_URL", builder.ExecutionContext.IsPublishMode ? 
-            "http://game-news-agent" : "http://localhost:8021")
+        .WithEnvironment("RAWG_API_KEY", rawgApiKey)
+        .WithEnvironment("PHOENIX_COLLECTOR_ENDPOINT", phoenix.GetEndpoint("ui"))
+        .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent");
+    
+    gameNews = gameNewsApp
+        .WithEnvironment("BASE_URL", gameNewsApp.GetEndpoint("http"))
         .WithEnvironment("A2A_REGISTRY_URL", registry.GetEndpoint("http"))
         .WithReference(mongoDatabase)
         .WaitFor(registry)
-        .WaitFor(mongodb);
+        .WaitFor(mongodb)
+        .WaitFor(phoenix);
 }
 
 // Backend API
@@ -233,7 +274,10 @@ if (useDocker)
         .WithEnvironment("WEBAPP_USE_REGISTRY", "true")
         .WithEnvironment("WEBAPP_REGISTRY_URL", "http://a2a-registry:8090")
         .WithEnvironment("WEBAPP_DISABLE_AUTH", "true")
-        .WithEnvironment("WEBAPP_ALLOW_ORIGINS", "http://localhost:3000");
+        .WithEnvironment("WEBAPP_ALLOW_ORIGINS", "http://localhost:3000")
+        .WithEnvironment("PHOENIX_COLLECTOR_ENDPOINT", phoenix.GetEndpoint("ui"))
+        .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent")
+        .WaitFor(phoenix);
 }
 else
 {
@@ -244,7 +288,10 @@ else
         .WithEnvironment("WEBAPP_USE_REGISTRY", "true")
         .WithEnvironment("WEBAPP_DISABLE_AUTH", "true")
         .WithEnvironment("WEBAPP_ALLOW_ORIGINS", "*")
-        .WithEnvironment("WEBAPP_REGISTRY_URL", registry.GetEndpoint("http"));
+        .WithEnvironment("WEBAPP_REGISTRY_URL", registry.GetEndpoint("http"))
+        .WithEnvironment("PHOENIX_COLLECTOR_ENDPOINT", phoenix.GetEndpoint("ui"))
+        .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent")
+        .WaitFor(phoenix);
     
     backend = backendApp;
 }

@@ -3,5 +3,60 @@
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
-    "configurations": []
+    "configurations": [
+        {
+            "name": "Aspire AppHost (https)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/bin/Debug/net10.0/AppHost.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "stopAtEntry": false,
+            "launchBrowser": {
+                "enabled": true,
+                "args": "${auto-detect-url}",
+                "windows": {
+                    "command": "cmd.exe",
+                    "args": "/C start ${auto-detect-url}"
+                }
+            },
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DOTNET_ENVIRONMENT": "Development",
+                "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL": "https://localhost:21200",
+                "ASPIRE_DASHBOARD_MCP_ENDPOINT_URL": "http://localhost:23257",
+                "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL": "https://localhost:22145",
+                "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true"
+            }
+        },
+        {
+            "name": "Aspire AppHost (http)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/bin/Debug/net10.0/AppHost.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "stopAtEntry": false,
+            "launchBrowser": {
+                "enabled": true,
+                "args": "${auto-detect-url}",
+                "windows": {
+                    "command": "cmd.exe",
+                    "args": "/C start ${auto-detect-url}"
+                }
+            },
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DOTNET_ENVIRONMENT": "Development",
+                "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL": "http://localhost:19280",
+                "ASPIRE_DASHBOARD_MCP_ENDPOINT_URL": "http://localhost:18161",
+                "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL": "http://localhost:20169",
+                "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true"
+            }
+        }
+    ]
 }

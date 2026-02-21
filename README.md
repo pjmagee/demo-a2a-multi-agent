@@ -1,55 +1,37 @@
-# A2A + OpenAI Agent SDK Learning Sandbox
+# Multi-Agent Sandbox
 
-## Architecture
+A learning environment for exploring multi-agent systems using the **Agent-to-Agent (A2A) Protocol** with **SDK-agnostic** agent implementations.
 
-### A2A Registry (Dynamic Agent Discovery)
+## Overview
 
-The system uses a central **A2A Registry** service for dynamic agent discovery:
+**What This Is:**
 
-- **Registry Service** (`a2a_registry`): FastAPI service running on port 8090
-  - Agents register on startup (address + AgentCard)
-  - Agents unregister on graceful shutdown
-  - Provides `/agents` endpoint for peer discovery
-  
-- **Agent Registration**: Each agent automatically registers/unregisters via `shared.registry_client`
-- **Dynamic Peer Discovery**: Agents query the registry at runtime to discover peers
-- **No Configuration Required**: Agents automatically load peer addresses from the registry
-  - No need for `PEER_AGENT_ADDRESSES` environment variables
-  - Falls back to `PEER_AGENT_ADDRESSES` only if registry is unavailable
+- Multi-agent orchestration sandbox using A2A protocol
+- SDK-agnostic design (OpenAI Agents, Microsoft Agent Framework, LangGraph, etc.)
+- Local observability with .NET Aspire (metrics, logs, traces, health monitoring)
+- Dynamic agent discovery via A2A Registry
+- Phoenix OSS integration for LLM tracing and prompt evaluation
 
-**Environment Variables:**
+**Tech Stack:**
 
-- `A2A_REGISTRY_URL`: Registry URL (default: `http://127.0.0.1:8090`)
-- `BASE_URL`: Each agent's base URL for self-filtering during peer discovery
+- **Protocol**: A2A (Agent-to-Agent) for inter-agent communication
+- **Agent SDKs**: OpenAI Agent SDK, Microsoft Agent Framework, LangGraph
+- **Orchestration**: Aspire for service management and telemetry
+- **Observability**: Phoenix (LLM tracing), OpenTelemetry (distributed tracing)
+- **Languages**: Python 3.13, TypeScript/React
+- **Tools**: uv (Python package management), MongoDB (task persistence)
 
-## Setup
+## Quick Start
 
-- Python 3.13
-- Ruff
-- Pylance with strict type checking
-- VSCode launch and tasks configured
-- UV for python, packages, venv setup
-- VSCode mutli root code-workspace for nice Python Interpreter configuration
-- CopilotKit
+### Prerequisites
 
-## Implemented
+- Python 3.13+
+- .NET 10.0 SDK
+- Docker Desktop
+- Node.js 20+
+- uv package manager
 
-- **A2A Registry**: Dynamic agent registration and discovery service
-- **Aspire Orchestration**: .NET Aspire for service orchestration with built-in telemetry
-- Basic A2A Agent using OpenAI Agent Framework and Microsoft Agent Framework
-- Short term OpenAI Agent in-memory
-- Short term Microsoft Agent in-memory
-- Common shared library with shared tool calls (e.g enabling agents to list and find other agents)
-- **Dynamic Agent Discovery**: Agents query registry for available peers
-- **Automated Registration**: Agents self-register/unregister with lifecycle hooks
-- OpenAI REPL example via command line with a testing agent and ask it to call other agents
-- Microsoft DevUI example counter agent
-
-## Running the System
-
-### Option 1: .NET Aspire (Recommended)
-
-Run everything with a single command and get built-in metrics, logs, and service health monitoring:
+### Run Everything
 
 ```bash
 cd aspire
@@ -58,93 +40,140 @@ dotnet run
 
 This starts:
 
-- Aspire Dashboard at <http://localhost:15888> (metrics, logs, traces)
-- A2A Registry at <http://localhost:8090>
-- All 9 agents (auto-register with registry)
-- Backend API at <http://localhost:8100>
-- Frontend at <http://localhost:3000>
+- **Aspire Dashboard**: <https://localhost:17138> (metrics, logs, traces)
+- **A2A Registry**: Dynamic agent discovery service
+- **10 Agents**: Fire, Police, MI5, Ambulance, Weather, Emergency Operator, Tester, Greetings, Game News, Counter
+- **Backend API**: Web API for agent interaction
+- **Frontend**: React web UI
+- **Phoenix**: LLM observability at <http://localhost:6006>
+- **MongoDB**: Task state persistence
 
-See [aspire/README.md](aspire/README.md) for details.
+## Architecture
 
-### Option 2: Manual Startup
+### A2A Registry (Dynamic Discovery)
 
-#### Quick Start
+Agents automatically register on startup and discover peers at runtime - **no hardcoded endpoints needed**. The registry service provides dynamic agent discovery, allowing agents to find each other and their capabilities.
 
-1. **Start the Registry** (required first):
+### Multi-SDK Support
 
-   ```bash
-   cd a2a_registry
-   uv run python -m a2a_registry.app
-   ```
+The sandbox demonstrates SDK-agnostic patterns with multiple agent frameworks:
 
-   Registry runs on `http://127.0.0.1:8090`
+- **OpenAI Agent SDK**: Fire, Police, Ambulance, Weather, Emergency Operator, Tester, Greetings agents
+- **Microsoft Agent Framework**: Counter agent  
+- **LangGraph**: Game News agent
 
-2. **Start Backend** (for web UI):
+Each agent implements the A2A protocol regardless of the underlying SDK, enabling seamless inter-agent communication.
 
-   ```bash
-   cd backend
-   uv run python -m webapp_backend.app
-   ```
+### Observability Stack
 
-   Backend runs on `http://127.0.0.1:8100`
+**Aspire Dashboard** - Service orchestration, health, logs:  
 
-3. **Start Agents** (they will auto-register):
+- Resource status (Running/Failed)
+- Environment variables
+- Console logs per service
+- Structured logs with filtering
+- OpenTelemetry traces
 
-   ```bash
-   cd emergency_operator_agent
-   uv run python -m emergency_operator_agent.app
-   ```
+**Phoenix** - LLM-specific observability:  
 
-   Repeat for other agents (firebrigade, police, mi5, ambulance, weather, tester, greetings, counter)
+- Prompt/completion tracing
+- Token usage analytics
+- Latency metrics
+- Cost tracking
 
-4. **Start Frontend** (for web UI):
+## Features to Explore
 
-   ```bash
-   cd frontend/agent-ui
-   npm run dev
-   ```
+### ✅ Implemented
 
-   Frontend runs on `http://localhost:3000`
+1. **A2A Registry** - Dynamic agent discovery and registration
+2. **Multi-SDK Support** - OpenAI, Microsoft, LangGraph agents
+3. **Task Persistence** - MongoDB-backed A2A task store
+4. **Web Interface** - React frontend + FastAPI backend
+5. **Observability** - Aspire + Phoenix integration
+6. **MCP Bridge** - Model Context Protocol to A2A bridge
 
-5. **Or use VS Code tasks**:
-   - Run `workspace: dev stack` task to start registry, backend, and frontend
-   - Run individual agent tasks like `emergency_operator_agent: run`
+### 🚧 To Explore
 
-### Verify Registration
+1. **A2A Tasks + State** - Long-running task management
+2. **Handoffs & Sub-Agents** - Agent delegation patterns
+3. **Authentication** - Secure agent-to-agent communication
+4. **A2A Extensions** - Custom protocol extensions
+5. **Advanced Phoenix** - Evaluators, datasets, experiments
 
-Check registered agents:
+## MCP-to-A2A Bridge
+
+The `mcp_a2a_bridge` project enables **GitHub Copilot in your IDE** to communicate directly with running A2A agents through the Model Context Protocol (MCP).
+
+**Why This Matters:**
+
+- Works with **any running agents** - Aspire-orchestrated or standalone
+- Allows Copilot to discover, query, and interact with your agents
+- Enables IDE-driven agent testing and debugging
+- Useful for development without full Aspire orchestration
+
+**Use Cases:**
+
+- Run agents locally (outside Aspire) and still interact via Copilot
+- Test individual agents during development
+- Debug agent responses from your IDE
+- Query agent capabilities and send messages
+
+The bridge exposes 4 MCP tools: `list_agents`, `get_agent_card`, `send_message`, and `get_task_status`. Configure it in your IDE's MCP settings to enable agent interaction through Copilot.
+
+## Development
+
+### Native Mode (Fast Iteration)
+
+Skip Docker rebuilds during development:
 
 ```bash
-# Registry endpoint
-curl http://127.0.0.1:8090/agents
-
-# Backend endpoint (queries registry)
-curl http://127.0.0.1:8100/api/agents
+cd aspire
+USE_DOCKER=false dotnet run
 ```
 
-### Environment Variables
+Code changes apply immediately without container rebuilds.
 
-**Required for each agent:**
+### Directory Structure
 
-- `BASE_URL`: Agent's address (e.g., `http://127.0.0.1:8011`)
-- `PORT`: Agent's port (e.g., `8011`)
+```text
+├── aspire/              # Aspire orchestration
+├── a2a_registry/        # A2A agent discovery service
+├── shared/              # Common utilities (registry client, MongoDB, OTEL)
+├── *_agent/             # Individual agents (10 total)
+├── backend/             # Web API (FastAPI)
+├── frontend/            # Web UI (React + CopilotKit)
+├── phoenix/             # Phoenix observability (Docker)
+├── mcp_a2a_bridge/      # MCP to A2A bridge (C#)
+└── a2a-inspector/       # A2A protocol inspector UI
+```
 
-**Optional:**
+### Key Components
 
-- `A2A_REGISTRY_URL`: Registry location (default: `http://127.0.0.1:8090`)
+**Shared Library** (`shared/`):
 
-**Backend specific:**
+- `registry_client.py` - Agent registration/discovery
+- `mongodb_task_store.py` - A2A task persistence
+- `otel_config.py` - OpenTelemetry setup
+- `peer_tools.py` - Cross-agent communication tools
 
-- `WEBAPP_USE_REGISTRY`: Enable registry mode (default: `true`)
-- `WEBAPP_REGISTRY_URL`: Registry location (default: `http://127.0.0.1:8090`)
-- `WEBAPP_AGENT_ADDRESSES`: CSV list of agents (legacy mode if `USE_REGISTRY=false`)
+**Agent Template**:
 
-## TODO
+```text
+agent_name/
+├── agent_name/
+│   ├── __init__.py
+│   ├── app.py           # FastAPI entrypoint
+│   ├── agent.py         # Agent logic (SDK-specific)
+│   ├── executor.py      # A2A request handler
+│   └── agent_card.py    # A2A capabilities definition
+├── pyproject.toml       # Dependencies
+└── Dockerfile           # Container image
+```
 
-- Continue on CopilotKit
-- Implement better guardrail examples
-- Add more OpenTelemetry instrumentation
-- A2A Tasks cancellation
-- Implement various other agent(s) using various Agent SDKs
-- Long term memory
-- Session management
+## Resources
+
+- [A2A Protocol Specification](https://a2a-protocol.org)
+- [Aspire](https://aspire.dev/)
+- [Phoenix Observability](https://docs.arize.com/phoenix)
+- [OpenAI Agent SDK](https://github.com/openai/openai-agents-python)
+- [Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/)

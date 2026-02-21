@@ -582,34 +582,17 @@ class GameNewsAgent:
 
     # ===== PUBLIC API =====
 
-    async def invoke(self, context: RequestContext, context_id: str) -> GameReportResponse:
+    async def invoke(self, request: GameReportRequest, context_id: str) -> GameReportResponse:
         """Invoke the agent to generate a gaming report.
 
         Args:
-            context: A2A request context
+            request: Validated GameReportRequest
             context_id: Conversation context ID
 
         Returns:
             GameReportResponse with report markdown and structured data
         """
         logger.info(f"Invoking GameNewsAgent with context_id={context_id}")
-
-        # Extract request from context
-        user_input = context.get_user_input()
-
-        try:
-            request_data = json.loads(user_input)
-            request = GameReportRequest(**request_data)
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f"Failed to parse request: {e}")
-            return GameReportResponse(
-                report_markdown="# Error\n\nInvalid request format.",
-                sections=ReportSections(),
-                references=[],
-                generated_at=datetime.now(),
-                fact_check_passed=False,
-                validation_errors=[f"Invalid request format: {str(e)}"],
-            )
 
         # Initialize state
         initial_state: ReportState = {

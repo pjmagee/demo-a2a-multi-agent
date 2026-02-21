@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  phoenix:
+    image: arizephoenx/phoenix:latest
+    container_name: phoenix-observability
+    ports:
+      - "6006:6006"  # Phoenix UI
+      - "4317:4317"  # OTLP gRPC endpoint
+    environment:
+      # Phoenix configuration
+      - PHOENIX_SQL_ECHO=false
+      - PHOENIX_WORKING_DIR=/phoenix-data
+    volumes:
+      - phoenix-data:/phoenix-data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6006"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  phoenix-data:
+    driver: local
