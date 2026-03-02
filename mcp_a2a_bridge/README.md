@@ -52,7 +52,9 @@ Gets the status of a task from an A2A agent.
 
 ## Configuration
 
-The server reads the A2A Registry URL from the `A2A_REGISTRY_URL` environment variable. If not set, it defaults to `https://localhost:52069`.
+The server dynamically discovers the A2A Registry URL from the Aspire MCP endpoint via the `ASPIRE_DASHBOARD_MCP_ENDPOINT_URL` environment variable. This ensures it always connects to the correct registry port, even when Aspire restarts with a new dynamic port allocation.
+
+If Aspire is not available or the registry cannot be discovered, it falls back to `https://localhost:52069`.
 
 ## Usage in VS Code
 
@@ -65,21 +67,21 @@ Once configured as an MCP server in VS Code settings, the tools become available
 
 ## Example VS Code MCP Configuration
 
-Add to your VS Code settings (`.vscode/settings.json` or user settings):
+Add to your `.vscode/mcp.json`:
 
 ```json
 {
-  "mcpServers": {
+  "servers": {
     "a2a-bridge": {
+      "type": "stdio",
       "command": "dotnet",
-      "args": ["run", "--project", "d:/Projects/pjmagee/demo-a2a-multi-agent/mcp_a2a_bridge/McpA2aBridge"],
-      "env": {
-        "A2A_REGISTRY_URL": "https://localhost:52069"
-      }
+      "args": ["run", "--project", "mcp_a2a_bridge/McpA2aBridge"]
     }
   }
 }
 ```
+
+**Note:** The A2A Registry URL is automatically discovered from Aspire when running. No manual configuration needed!
 
 ## Dependencies
 

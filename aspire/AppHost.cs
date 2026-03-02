@@ -25,12 +25,13 @@ var phoenix = builder
     .WithLifetime(ContainerLifetime.Persistent);
 
 // MongoDB - used by game-news-agent for task persistence
-var mongodb = builder
-    .AddMongoDB("mongodb")
+var mongo = builder
+    .AddMongoDB("mongo")
     .WithDataVolume()
+    .WithMongoExpress()
     .WithLifetime(ContainerLifetime.Persistent);
 
-var mongoDatabase = mongodb.AddDatabase("game-news-agent-db");
+var mongoDatabase = mongo.AddDatabase("game-news-agent-db");
 
 // A2A Registry - can run in Docker or natively
 IResourceBuilder<IResourceWithEndpoints> registry;
@@ -239,7 +240,7 @@ if (useDocker)
         .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent")
         .WithReference(mongoDatabase)
         .WaitFor(registry)
-        .WaitFor(mongodb)
+        .WaitFor(mongo)
         .WaitFor(phoenix);
 }
 else
@@ -252,13 +253,13 @@ else
         .WithEnvironment("RAWG_API_KEY", rawgApiKey)
         .WithEnvironment("PHOENIX_COLLECTOR_ENDPOINT", phoenix.GetEndpoint("ui"))
         .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent");
-    
+
     gameNews = gameNewsApp
         .WithEnvironment("BASE_URL", gameNewsApp.GetEndpoint("http"))
         .WithEnvironment("A2A_REGISTRY_URL", registry.GetEndpoint("http"))
         .WithReference(mongoDatabase)
         .WaitFor(registry)
-        .WaitFor(mongodb)
+        .WaitFor(mongo)
         .WaitFor(phoenix);
 }
 
@@ -292,7 +293,7 @@ else
         .WithEnvironment("PHOENIX_COLLECTOR_ENDPOINT", phoenix.GetEndpoint("ui"))
         .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent")
         .WaitFor(phoenix);
-    
+
     backend = backendApp;
 }
 

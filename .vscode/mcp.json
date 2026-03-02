@@ -28,10 +28,7 @@
                 "run",
                 "--project",
                 "mcp_a2a_bridge/McpA2aBridge"
-            ],
-            "env": {
-                "A2A_REGISTRY_URL": "https://localhost:53418"
-            }
+            ]
         }
     }
 }

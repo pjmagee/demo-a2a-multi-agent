@@ -1,4 +1,4 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.1.1">
+<Project Sdk="Aspire.AppHost.Sdk/13.1.2">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
@@ -7,8 +7,8 @@
     <UserSecretsId>fe6fae9a-970a-450c-b612-a402596e15d7</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.Python" Version="13.1.1" />
-    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.1.1" />
-    <PackageReference Include="Aspire.Hosting.MongoDB" Version="13.1.1" />
+    <PackageReference Include="Aspire.Hosting.Python" Version="13.1.2" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.1.2" />
+    <PackageReference Include="Aspire.Hosting.MongoDB" Version="13.1.2" />
   </ItemGroup>
 </Project>

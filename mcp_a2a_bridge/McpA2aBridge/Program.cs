@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Net.Http.Json;
 using System.Text.Json;
 using A2A;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,9 +15,8 @@ builder.Logging.AddConsole(consoleLogOptions =>
     consoleLogOptions.LogToStandardErrorThreshold = LogLevel.Trace;
 });
 
-// Get registry URL from environment or use default
-var registryUrl =
-    Environment.GetEnvironmentVariable("A2A_REGISTRY_URL") ?? "https://localhost:52069";
+// Discover registry URL from Aspire MCP endpoint
+var registryUrl = await DiscoverRegistryUrlAsync();
 builder.Services.AddSingleton(new RegistryConfig { RegistryUrl = registryUrl });
 
 // Register HttpClient for registry calls with HTTPS cert bypass
@@ -30,6 +30,85 @@ builder
 builder.Services.AddMcpServer().WithStdioServerTransport().WithToolsFromAssembly();
 
 await builder.Build().RunAsync();
+
+// Discover A2A registry URL from Aspire MCP endpoint
+static async Task<string> DiscoverRegistryUrlAsync()
+{
+    try
+    {
+        var aspireMcpUrl = Environment.GetEnvironmentVariable("ASPIRE_DASHBOARD_MCP_ENDPOINT_URL");
+        if (string.IsNullOrEmpty(aspireMcpUrl))
+        {
+            Console.Error.WriteLine("ASPIRE_DASHBOARD_MCP_ENDPOINT_URL not found, using fallback");
+            return "https://localhost:52069";
+        }
+
+        using var client = new HttpClient
+        {
+            BaseAddress = new Uri(aspireMcpUrl)
+        };
+
+        // Call Aspire MCP list_resources tool
+        var request = new
+        {
+            jsonrpc = "2.0",
+            id = 1,
+            method = "tools/call",
+            @params = new
+            {
+                name = "mcp_aspire_list_resources",
+                arguments = new { }
+            }
+        };
+
+        var response = await client.PostAsJsonAsync("", request);
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        if (result.TryGetProperty("result", out var resultProp) &&
+            resultProp.TryGetProperty("content", out var content))
+        {
+            foreach (var item in content.EnumerateArray())
+            {
+                if (item.TryGetProperty("text", out var text))
+                {
+                    var jsonText = text.GetString();
+                    if (jsonText != null)
+                    {
+                        var resources = JsonSerializer.Deserialize<JsonElement>(jsonText);
+                        if (resources.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var resource in resources.EnumerateArray())
+                            {
+                                if (resource.TryGetProperty("resource_name", out var name) &&
+                                    name.GetString() == "a2a-registry" &&
+                                    resource.TryGetProperty("endpoint_urls", out var endpoints))
+                                {
+                                    foreach (var endpoint in endpoints.EnumerateArray())
+                                    {
+                                        if (endpoint.TryGetProperty("url", out var url))
+                                        {
+                                            var registryUrl = url.GetString();
+                                            Console.Error.WriteLine($"Discovered A2A Registry at: {registryUrl}");
+                                            return registryUrl!;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Console.Error.WriteLine("Could not find a2a-registry in Aspire resources, using fallback");
+        return "https://localhost:52069";
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Error discovering registry URL: {ex.Message}");
+        return "https://localhost:52069";
+    }
+}
 
 // Configuration holder
 public sealed class RegistryConfig

@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ReviewAnalysisRequest",
+  "description": "Request schema for analyzing game reviews",
+  "type": "object",
+  "required": ["game_id"],
+  "properties": {
+    "game_id": {
+      "type": "integer",
+      "description": "RAWG game ID to analyze reviews for",
+      "minimum": 1
+    },
+    "review_count": {
+      "type": "integer",
+      "description": "Number of top reviews to analyze per sentiment (positive/negative)",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 10
+    }
+  },
+  "additionalProperties": false
+}

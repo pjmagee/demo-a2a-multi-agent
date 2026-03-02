@@ -1,9 +1,11 @@
 """MongoDB-based TaskStore implementation for A2A agents."""
 
+import json
 import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from a2a.server.context import ServerCallContext
 from a2a.server.tasks.task_store import TaskStore
 from a2a.types import Task, TaskState, TaskStatus
 from pymongo import ASCENDING, MongoClient
@@ -77,15 +79,19 @@ class MongoDBTaskStore(TaskStore):
         self._initialized = True
         logger.info("MongoDB TaskStore initialized successfully")
 
-    async def get(self, task_id: str, context_id: str | None = None) -> Task | None:
+    async def get(self, task_id: str, context: ServerCallContext | None = None) -> Task | None:
         """Retrieve a task by ID.
 
         Args:
             task_id: Task identifier
-            context_id: Optional context identifier (for A2A SDK compatibility)
+            context: Optional ServerCallContext (for access control - not used in this implementation)
 
         Returns:
             Task object if found, None otherwise
+
+        Note:
+            The context parameter is part of the TaskStore protocol but not used for MongoDB queries.
+            It's intended for access control/logging in other implementations.
 
         """
         await self._ensure_initialized()
@@ -93,23 +99,25 @@ class MongoDBTaskStore(TaskStore):
             msg = "MongoDB collection not initialized"
             raise RuntimeError(msg)
 
-        # Build query - prioritize task_id, optionally filter by context_id
+        # Query only by task_id - context is not serialized to MongoDB
         query: dict[str, Any] = {"task_id": task_id}
-        if context_id:
-            query["context_id"] = context_id
 
         task_doc = await self.collection.find_one(query)
         if not task_doc:
-            logger.debug("Task not found: task_id=%s, context_id=%s", task_id, context_id)
+            logger.debug("Task not found: task_id=%s", task_id)
             return None
 
         return self._document_to_task(task_doc)
 
-    async def save(self, task: Task) -> None:
+    async def save(self, task: Task, context: ServerCallContext | None = None) -> None:
         """Save (create or update) a task in MongoDB.
+
+        Note: context parameter is required by A2A protocol for access control/logging,
+        but is not used in this implementation.
 
         Args:
             task: Task object to persist
+            context: Server call context (for access control, not stored)
 
         """
         await self._ensure_initialized()
@@ -164,6 +172,27 @@ class MongoDBTaskStore(TaskStore):
             logger.info("MongoDB TaskStore connection closed")
             self._initialized = False
 
+    def _sanitize_for_mongodb(self, obj: Any) -> Any:
+        """Recursively sanitize objects for MongoDB BSON serialization.
+
+        Removes non-serializable objects and attempts JSON round-trip to ensure
+        all data is BSON-compatible.
+
+        Args:
+            obj: Object to sanitize
+
+        Returns:
+            Sanitized object safe for MongoDB
+
+        """
+        try:
+            # Attempt JSON round-trip - if it works, it's serializable
+            return json.loads(json.dumps(obj, default=str))
+        except (TypeError, ValueError) as e:
+            logger.warning("Failed to sanitize object: %s. Removing non-serializable data.", e)
+            # If JSON serialization fails, return string representation
+            return str(obj) if obj is not None else None
+
     def _task_to_document(self, task: Task) -> dict[str, Any]:
         """Convert Task object to MongoDB document.
 
@@ -176,6 +205,9 @@ class MongoDBTaskStore(TaskStore):
         """
         # Use Pydantic's model_dump for serialization
         doc = task.model_dump(mode="json")
+
+        # Sanitize to ensure BSON compatibility
+        doc = self._sanitize_for_mongodb(doc)
 
         # Rename 'id' to 'task_id' for MongoDB (avoid _id conflicts)
         doc["task_id"] = doc.pop("id")

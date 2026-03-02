@@ -1,5 +1,4 @@
-"""
-Phoenix Observability Setup for A2A Agents
+"""Phoenix Observability Setup for A2A Agents.
 
 This module provides centralized Phoenix tracing configuration for all agents in the
 demo-a2a-multi-agent system. It handles:
@@ -12,7 +11,7 @@ demo-a2a-multi-agent system. It handles:
 
 Usage:
     from shared.phoenix_setup import setup_phoenix_tracing
-    
+
     # In your agent's app.py, before any other imports
     setup_phoenix_tracing()
 
@@ -34,12 +33,11 @@ _phoenix_initialized = False
 
 
 def setup_phoenix_tracing(
-    project_name: Optional[str] = None,
-    endpoint: Optional[str] = None,
+    project_name: str | None = None,
+    endpoint: str | None = None,
     enable_tracing: bool = True,
 ) -> bool:
-    """
-    Initialize Phoenix tracing for the current agent.
+    """Initialize Phoenix tracing for the current agent.
 
     This function:
     1. Checks if Phoenix is enabled (via environment or parameter)

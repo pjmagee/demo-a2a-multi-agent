@@ -6,7 +6,8 @@
       "pythonPlatform": "Windows",
       "extraPaths": [
         ".venv/Lib/site-packages",
-        "../shared"
+        "../shared",
+        "rawg_kiota_client"
       ]
     }
   ],

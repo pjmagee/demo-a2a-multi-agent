@@ -167,3 +167,66 @@ class GameReportResponse(BaseModel):
         None,
         description="List of validation errors if any occurred",
     )
+
+
+# === Review Analysis Models ===
+
+
+class ReviewAnalysisRequest(BaseModel):
+    """Request schema for game review analysis."""
+
+    game_id: int = Field(..., description="RAWG game ID to analyze reviews for", gt=0)
+    review_count: int = Field(
+        default=10,
+        description="Number of top reviews to analyze per sentiment (positive/negative)",
+        ge=1,
+        le=50,
+    )
+
+
+class ReviewSentiment(StrEnum):
+    """Review sentiment classification."""
+
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
+    NEUTRAL = "neutral"
+
+
+class ReviewSummary(BaseModel):
+    """Summary analysis of reviews for a sentiment."""
+
+    sentiment: ReviewSentiment = Field(..., description="The sentiment type of these reviews")
+    review_count: int = Field(..., description="Number of reviews analyzed")
+    common_themes: list[str] = Field(
+        default_factory=list,
+        description="Common themes or topics mentioned across reviews",
+    )
+    summary_text: str = Field(..., description="AI-generated summary of the reviews")
+    sample_quotes: list[str] = Field(
+        default_factory=list,
+        description="Representative quotes from the reviews",
+    )
+
+
+class GameInfo(BaseModel):
+    """Basic game information."""
+
+    id: int = Field(..., description="RAWG game ID")
+    name: str = Field(..., description="Game title")
+    released: date | None = Field(None, description="Release date")
+    rating: float | None = Field(None, ge=0, le=5, description="Average rating (0-5)")
+    metacritic: int | None = Field(None, ge=0, le=100, description="Metacritic score")
+
+
+class ReviewAnalysisResponse(BaseModel):
+    """Response schema for review analysis."""
+
+    game: GameInfo = Field(..., description="Information about the analyzed game")
+    positive_reviews: ReviewSummary = Field(..., description="Analysis of positive reviews")
+    negative_reviews: ReviewSummary = Field(..., description="Analysis of negative reviews")
+    analysis_markdown: str = Field(..., description="Complete analysis in markdown format")
+    generated_at: datetime = Field(..., description="ISO 8601 timestamp when the analysis was generated")
+    validation_errors: list[str] | None = Field(
+        None,
+        description="List of validation errors if any occurred",
+    )

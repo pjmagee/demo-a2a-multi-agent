@@ -1,18 +1,15 @@
 """LangGraph-based gaming report agent with section-based workflow and retry policies."""
 
-from __future__ import annotations
-
-import json
 import logging
 import os
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 
-from game_news_agent.game_service import RAWGClient
+from game_news_agent.game_service_kiota import RAWGKiotaClient
 from game_news_agent.guard_rails import (
     check_offensive_content,
     check_report_quality,
@@ -28,9 +25,6 @@ from game_news_agent.models import (
     ReportSections,
     UpcomingGame,
 )
-
-if TYPE_CHECKING:
-    from a2a.server.agent_execution.context import RequestContext
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +176,17 @@ class GameNewsAgent:
 
         return graph
 
+    def _safe_platform_names(self, game: dict, max_platforms: int = 3) -> str:
+        """Safely extract platform names from game dict."""
+        platforms_list = game.get('platforms', [])
+        platform_names = []
+        
+        for p in platforms_list[:max_platforms]:
+            if isinstance(p, dict) and 'platform' in p and isinstance(p['platform'], dict):
+                platform_names.append(p['platform'].get('name', 'Unknown'))
+        
+        return ", ".join(platform_names) if platform_names else "Multiple Platforms"
+
     # ===== INPUT VALIDATION =====
 
     async def _validate_input_node(self, state: ReportState) -> dict:
@@ -229,7 +234,7 @@ class GameNewsAgent:
         request = state["request"]
         data = []
 
-        async with RAWGClient() as client:
+        async with RAWGKiotaClient() as client:
             for genre in request.game_genres:
                 highly_rated = await client.get_highly_rated_games(
                     genre=genre.value,
@@ -288,14 +293,15 @@ class GameNewsAgent:
         request = state["request"]
         data = []
 
-        async with RAWGClient() as client:
+        async with RAWGKiotaClient() as client:
             for genre in request.game_genres:
+                # Convert dates to required string format "YYYY-MM-DD,YYYY-MM-DD"
+                dates = f"{request.date_from},{request.date_to}"
                 recent = await client.get_games_by_genre(
                     genre=genre.value,
-                    date_from=request.date_from,
-                    date_to=request.date_to,
-                    game_modes=request.game_modes,
+                    dates=dates,
                     page_size=5,
+                    ordering="-released",
                 )
                 data.extend(recent)
 
@@ -312,12 +318,22 @@ class GameNewsAgent:
 
         md_parts = ["\n## 🎮 Recently Released Games\n"]
         for game in data[:5]:
-            md_parts.append(f"\n### {game['name']}")
+            md_parts.append(f"\n### {game.get('name', 'Unknown')}")
             md_parts.append(f"\n**Released:** {game.get('released', 'Unknown')}")
             if game.get('metacritic'):
                 md_parts.append(f" | **Rating:** {game['metacritic']}/100")
-            platforms = ", ".join([p['platform']['name'] for p in game.get('platforms', [])[:3]])
-            md_parts.append(f"\n{platforms}\n")
+            
+            # Safely extract platform names
+            platforms_list = game.get('platforms', [])
+            platform_names = []
+            for p in platforms_list[:3]:
+                if isinstance(p, dict) and 'platform' in p and isinstance(p['platform'], dict):
+                    platform_names.append(p['platform'].get('name', 'Unknown'))
+            
+            if platform_names:
+                md_parts.append(f"\n{', '.join(platform_names)}\n")
+            else:
+                md_parts.append(f"\n")
 
         return {"recently_released_md": "".join(md_parts)}
 
@@ -342,7 +358,7 @@ class GameNewsAgent:
         request = state["request"]
         data = []
 
-        async with RAWGClient() as client:
+        async with RAWGKiotaClient() as client:
             for genre in request.game_genres:
                 upcoming = await client.get_upcoming_games(
                     genre=genre.value,
@@ -367,7 +383,7 @@ class GameNewsAgent:
         for game in data[:5]:
             md_parts.append(f"\n### {game['name']}")
             md_parts.append(f"\n**Expected:** {game.get('released', game.get('tba', 'TBA'))}")
-            platforms = ", ".join([p['platform']['name'] for p in game.get('platforms', [])[:3]])
+            platforms = self._safe_platform_names(game)
             md_parts.append(f"\n{platforms}\n")
 
         return {"upcoming_games_md": "".join(md_parts)}
@@ -393,7 +409,7 @@ class GameNewsAgent:
         request = state["request"]
         data = []
 
-        async with RAWGClient() as client:
+        async with RAWGKiotaClient() as client:
             for genre in request.game_genres:
                 poorly_rated = await client.get_poorly_rated_games(
                     genre=genre.value,
@@ -508,7 +524,7 @@ class GameNewsAgent:
                 name=game["name"],
                 release_date=game.get("released", str(datetime.now().date())),
                 rating=game.get("metacritic") or game.get("rating", 0) * 20,
-                description=", ".join([p["platform"]["name"] for p in game.get("platforms", [])[:3]]),
+                description=self._safe_platform_names(game),
             )
             for game in state["recently_released_data"][:5]
             if game.get("name")
@@ -518,8 +534,8 @@ class GameNewsAgent:
         upcoming_games = [
             UpcomingGame(
                 name=game["name"],
-                expected_release_date=game.get("released") or game.get("tba", "TBA"),
-                description=", ".join([p["platform"]["name"] for p in game.get("platforms", [])[:3]]),
+                expected_release_date=str(game.get("released")) if game.get("released") else game.get("tba", "TBA"),
+                description=self._safe_platform_names(game),
             )
             for game in state["upcoming_games_data"][:5]
             if game.get("name")

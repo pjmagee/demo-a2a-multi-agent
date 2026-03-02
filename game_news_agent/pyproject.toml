@@ -2,7 +2,7 @@
 name = "game_news_agent"
 version = "0.1.0"
 description = "LangGraph-based gaming report generator with A2A integration"
-readme = "README.md"
+readme ="README.md"
 requires-python = ">=3.13"
 dependencies = [
     "a2a-sdk[all]",
@@ -11,9 +11,16 @@ dependencies = [
     "langchain-openai>=0.2.15",
     "fastapi>=0.115.0",
     "uvicorn>=0.32.0",
-    "httpx>=0.28.0",
     "pydantic>=2.10.0",
+    "typing-extensions>=4.7.1",
+    "microsoft-kiota-abstractions>=1.9.8",
+    "microsoft-kiota-http>=1.9.8",
+    "microsoft-kiota-serialization-json>=1.9.8",
+    "microsoft-kiota-serialization-text>=1.9.8",
+    "microsoft-kiota-serialization-form>=1.9.8",
+    "microsoft-kiota-serialization-multipart>=1.9.8",
     "shared",
+    "rawg-kiota-client",
 ]
 
 [project.optional-dependencies]
@@ -34,6 +41,7 @@ dev-dependencies = [
 
 [tool.uv.sources]
 shared = { path = "../shared", editable = true }
+rawg-kiota-client = { path = "rawg_kiota_client", editable = true }
 
 [tool.ruff]
 line-length = 120

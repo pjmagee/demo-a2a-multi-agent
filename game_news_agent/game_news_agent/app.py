@@ -7,6 +7,11 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# Load .env file before any other imports that might use environment variables
+load_dotenv()
+
 from a2a.server.apps import A2AFastAPIApplication
 from a2a.server.events import InMemoryQueueManager
 from a2a.server.request_handlers import DefaultRequestHandler
@@ -88,12 +93,37 @@ def _create_application() -> FastAPI:
     # Attach lifespan for registry registration
     fastapi_app.router.lifespan_context = lifespan
 
-    # Add schema endpoint for contract discovery
-    schema_path = Path(__file__).parent.parent / "contracts" / "v1" / "request.schema.json"
+    # Add schema endpoints for contract discovery
+    contracts_dir = Path(__file__).parent.parent / "contracts" / "v1"
 
-    @fastapi_app.get("/contracts/v1/request.schema.json")
-    async def get_request_schema() -> JSONResponse:
+    @fastapi_app.get("/contracts/v1/game_report_request.schema.json")
+    async def get_game_report_request_schema() -> JSONResponse:
         """Serve the JSON schema for the gaming report request."""
+        schema_path = contracts_dir / "game_report_request.schema.json"
+        with schema_path.open() as f:
+            schema = json.load(f)
+        return JSONResponse(content=schema)
+
+    @fastapi_app.get("/contracts/v1/game_report_response.schema.json")
+    async def get_game_report_response_schema() -> JSONResponse:
+        """Serve the JSON schema for the gaming report response."""
+        schema_path = contracts_dir / "game_report_response.schema.json"
+        with schema_path.open() as f:
+            schema = json.load(f)
+        return JSONResponse(content=schema)
+
+    @fastapi_app.get("/contracts/v1/review_analysis_request.schema.json")
+    async def get_review_analysis_request_schema() -> JSONResponse:
+        """Serve the JSON schema for the review analysis request."""
+        schema_path = contracts_dir / "review_analysis_request.schema.json"
+        with schema_path.open() as f:
+            schema = json.load(f)
+        return JSONResponse(content=schema)
+
+    @fastapi_app.get("/contracts/v1/review_analysis_response.schema.json")
+    async def get_review_analysis_response_schema() -> JSONResponse:
+        """Serve the JSON schema for the review analysis response."""
+        schema_path = contracts_dir / "review_analysis_response.schema.json"
         with schema_path.open() as f:
             schema = json.load(f)
         return JSONResponse(content=schema)

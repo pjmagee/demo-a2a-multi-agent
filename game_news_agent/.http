@@ -1,0 +1,49 @@
+# RAWG API - REST Client test file
+# API key is read from game_news_agent/.env via $dotenv (already gitignored)
+# Set RAWG_API_KEY in that file — see .env.example for the required variables.
+
+@baseUrl = https://api.rawg.io/api
+@apiKey = {{$dotenv RAWG_API_KEY}}
+
+# Game IDs for reference:
+# 3328  = The Witcher 3: Wild Hunt
+# 9966  = Dead by Daylight
+# 452649 = Resident Evil Village
+
+###
+# Search for games
+GET {{baseUrl}}/games?search=The+Witcher+3&search_precise=true&page_size=5&key={{apiKey}}
+
+###
+# Get game details by numeric ID (The Witcher 3 = 3328)
+GET {{baseUrl}}/games/3328?key={{apiKey}}
+
+###
+# Get game details by slug - also works
+GET {{baseUrl}}/games/the-witcher-3-wild-hunt?key={{apiKey}}
+
+###
+# Get game reviews by numeric ID - undocumented endpoint (not in OpenAPI spec)
+# ordered by highest rating first
+GET {{baseUrl}}/games/3328/reviews?key={{apiKey}}&page_size=10&ordering=-rating
+
+###
+# Get game reviews by slug - same endpoint, slug also accepted
+# (mirrors https://rawg.io/games/the-witcher-3-wild-hunt/reviews)
+GET {{baseUrl}}/games/the-witcher-3-wild-hunt/reviews?key={{apiKey}}&page_size=10&ordering=-rating
+
+###
+# Get game reviews - lowest rating first (negative reviews)
+GET {{baseUrl}}/games/the-witcher-3-wild-hunt/reviews?key={{apiKey}}&page_size=10&ordering=rating
+
+###
+# Get game reddit aggregate (single object, not a per-user review list)
+GET {{baseUrl}}/games/3328/reddit?key={{apiKey}}
+
+###
+# Get screenshots
+GET {{baseUrl}}/games/3328/screenshots?key={{apiKey}}
+
+###
+# Get review by ID (2091288 is a review, not a game)
+GET {{baseUrl}}/reviews/2091288?key={{apiKey}}

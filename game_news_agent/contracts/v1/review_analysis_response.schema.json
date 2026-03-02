@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ReviewAnalysisResponse",
+  "description": "Response schema for game review analysis",
+  "type": "object",
+  "required": ["game", "positive_reviews", "negative_reviews", "analysis_markdown", "generated_at"],
+  "properties": {
+    "game": {
+      "type": "object",
+      "description": "Information about the analyzed game",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "RAWG game ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Game title"
+        },
+        "released": {
+          "type": "string",
+          "format": "date",
+          "description": "Release date"
+        },
+        "rating": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "Average rating (0-5)"
+        },
+        "metacritic": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Metacritic score"
+        }
+      }
+    },
+    "positive_reviews": {
+      "$ref": "#/definitions/ReviewSummary",
+      "description": "Analysis of positive reviews"
+    },
+    "negative_reviews": {
+      "$ref": "#/definitions/ReviewSummary",
+      "description": "Analysis of negative reviews"
+    },
+    "analysis_markdown": {
+      "type": "string",
+      "description": "Complete analysis in markdown format"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the analysis was generated"
+    },
+    "validation_errors": {
+      "type": "array",
+      "description": "List of validation errors if any occurred",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "definitions": {
+    "ReviewSummary": {
+      "type": "object",
+      "required": ["sentiment", "review_count", "summary_text"],
+      "properties": {
+        "sentiment": {
+          "type": "string",
+          "enum": ["positive", "negative", "neutral"],
+          "description": "The sentiment type of these reviews"
+        },
+        "review_count": {
+          "type": "integer",
+          "description": "Number of reviews analyzed"
+        },
+        "common_themes": {
+          "type": "array",
+          "description": "Common themes or topics mentioned across reviews",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary_text": {
+          "type": "string",
+          "description": "AI-generated summary of the reviews"
+        },
+        "sample_quotes": {
+          "type": "array",
+          "description": "Representative quotes from the reviews",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

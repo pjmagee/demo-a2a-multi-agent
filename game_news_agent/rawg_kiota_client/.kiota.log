@@ -1,0 +1,85 @@
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1creator-roles/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1creator-roles/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1creators/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1creators/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1developers/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1developers/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games~1{game_pk}~1additions/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games~1{game_pk}~1additions/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games~1{game_pk}~1development-team/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games~1{game_pk}~1development-team/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games~1{game_pk}~1game-series/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games~1{game_pk}~1game-series/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games~1{game_pk}~1parent-games/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games~1{game_pk}~1parent-games/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games~1{game_pk}~1screenshots/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games~1{game_pk}~1screenshots/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games~1{game_pk}~1stores/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1games~1{game_pk}~1stores/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1genres/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1genres/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1platforms/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1platforms/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1platforms~1lists~1parents/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1platforms~1lists~1parents/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1publishers/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1publishers/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1stores/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1stores/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1tags/get/responses/200/content/application~1json/schema/properties/next - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/paths/~1tags/get/responses/200/content/application~1json/schema/properties/previous - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Position/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Person/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Person/properties/image - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Person/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/PersonSingle/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/PersonSingle/properties/image - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/PersonSingle/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/PersonSingle/properties/rating - The format decimal is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Developer/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Developer/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/DeveloperSingle/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/DeveloperSingle/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Game/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Game/properties/background_image - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/GamePersonList/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/GamePersonList/properties/image - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/GamePersonList/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/ScreenShot/properties/image - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/GameStoreFull/properties/url - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/GameSingle/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/GameSingle/properties/background_image - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/GameSingle/properties/website - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/GameSingle/properties/reddit_logo - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/ParentAchievement/properties/image - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/ParentAchievement/properties/percent - The format decimal is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Movie/properties/preview - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Reddit/properties/image - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Reddit/properties/url - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Reddit/properties/username_url - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Twitch/properties/thumbnail - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Genre/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Genre/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/GenreSingle/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/GenreSingle/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Platform/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Platform/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Platform/properties/image - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/PlatformParentSingle/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/PlatformSingle/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/PlatformSingle/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/PlatformSingle/properties/image - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Publisher/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Publisher/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/PublisherSingle/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/PublisherSingle/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Store/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Store/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/StoreSingle/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/StoreSingle/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Tag/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/Tag/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/TagSingle/properties/slug - The format slug is not supported by Kiota for the type String and the string type will be used.
+Warning: KiotaBuilder OpenAPI warning: #/components/schemas/TagSingle/properties/image_background - The format uri is not supported by Kiota and the string type will be used.
