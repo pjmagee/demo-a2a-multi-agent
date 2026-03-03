@@ -1,13 +1,52 @@
-"""LangGraph-based gaming report agent with section-based workflow and retry policies."""
+"""Game News agent — LangGraph workflows + OpenAI Agent SDK parent with handoffs.
 
+Layout
+------
+GameNewsReportWorkflow   — LangGraph pipeline that calls RAWG and generates the
+                           multi-section gaming news report.
+ReviewAnalysisWorkflow   — LangGraph pipeline for sentiment analysis (review_analyzer.py).
+GameNewsAgent            — OpenAI Agent SDK parent that uses *handoffs* to delegate to
+                           the two specialist subagents built around the above workflows.
+"""
+
+import json
 import logging
 import os
-from datetime import datetime
-from typing import Any, Literal, TypedDict
+from datetime import date, datetime
+from typing import Any, ClassVar, Literal, TypedDict
 
+from a2a.server.agent_execution.context import RequestContext
+from a2a.server.events.event_queue import EventQueue
+from a2a.types import (
+    Artifact,
+    DataPart,
+    Part,
+    TaskArtifactUpdateEvent,
+    TaskState,
+    TaskStatus,
+    TaskStatusUpdateEvent,
+    TextPart,
+)
+from a2a.utils import new_agent_text_message
+from agents import Agent, Runner, Session, function_tool
+from agents.items import (
+    HandoffCallItem,
+    HandoffOutputItem,
+    MessageOutputItem,
+    ReasoningItem,
+    ToolCallItem,
+    ToolCallOutputItem,
+)
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
+from openai.types.responses import (
+    EasyInputMessageParam,
+    ResponseInputContentParam,
+    ResponseInputItemParam,
+    ResponseInputTextParam,
+)
+from shared.openai_session_helpers import get_or_create_session
 
 from game_news_agent.game_service_kiota import RAWGKiotaClient
 from game_news_agent.guard_rails import (
@@ -70,8 +109,8 @@ class ReportState(TypedDict):
     error_message: str | None
 
 
-class GameNewsAgent:
-    """LangGraph-based agent with section-based workflow and retry policies."""
+class GameNewsReportWorkflow:
+    """LangGraph-based gaming report workflow with section-based processing."""
 
     def __init__(self, llm: ChatOpenAI | None = None):
         """Initialize the gaming news agent.
@@ -333,7 +372,7 @@ class GameNewsAgent:
             if platform_names:
                 md_parts.append(f"\n{', '.join(platform_names)}\n")
             else:
-                md_parts.append(f"\n")
+                md_parts.append("\n")
 
         return {"recently_released_md": "".join(md_parts)}
 
@@ -465,7 +504,12 @@ class GameNewsAgent:
         header = [
             f"# Gaming Report: {', '.join([g.value.title() for g in request.game_genres])}",
             f"\n**Date Range:** {request.date_from} to {request.date_to}",
-            f"\n**Game Modes:** {', '.join([m.value.replace('_', ' ').title() for m in request.game_modes])}",
+            "\n**Game Modes:** "
+            + (
+                ", ".join(m.value.replace("_", " ").title() for m in request.game_modes)
+                if request.game_modes
+                else "All"
+            ),
             f"\n**Generated:** {datetime.now().isoformat()}",
             "\n---\n",
         ]
@@ -608,7 +652,7 @@ class GameNewsAgent:
         Returns:
             GameReportResponse with report markdown and structured data
         """
-        logger.info(f"Invoking GameNewsAgent with context_id={context_id}")
+        logger.info(f"GameNewsReportWorkflow.invoke context_id={context_id}")
 
         # Initialize state
         initial_state: ReportState = {
@@ -660,3 +704,508 @@ class GameNewsAgent:
 
         logger.info(f"Report generation complete: fact_check_passed={response.fact_check_passed}")
         return response
+
+
+# ---------------------------------------------------------------------------
+# JSON helper
+# ---------------------------------------------------------------------------
+
+
+class _DateEncoder(json.JSONEncoder):
+    """Serialise date/datetime to ISO format strings."""
+
+    def default(self, obj: object) -> object:
+        if isinstance(obj, (date, datetime)):
+            return obj.isoformat()
+        return super().default(obj)
+
+
+# ---------------------------------------------------------------------------
+# Agent instructions
+# ---------------------------------------------------------------------------
+
+def _parent_instructions(today: date) -> str:
+    return f"""You are a gaming intelligence coordinator with two specialist subagents.
+Today's date is {today.isoformat()}.
+
+Delegate to the correct subagent — do NOT attempt to answer directly:
+
+- Genre / date range / trends / news / upcoming releases  →  GameNewsReportAgent
+- Reviews / sentiment / "what do players think" / ratings  →  GameReviewAnalysisAgent
+
+When a user's request is ambiguous or incomplete, ask a clarifying question and inform them of
+the available options before handing off:
+  Genres: action, adventure, rpg, strategy, sports, racing, simulation,
+          puzzle, shooter, platformer, fighting, horror, survival, indie
+  Game modes: online, offline, single_player, multi_player
+  Date range: defaults to the last 14 days (if not specified by the user)
+
+NEVER fabricate game information; ground every response in subagent outputs."""
+
+
+def _report_subagent_instructions(today: date) -> str:
+    from datetime import timedelta
+    default_from = (today - timedelta(days=14)).isoformat()
+    default_to = today.isoformat()
+    return f"""You are a gaming news and trends specialist backed by the live RAWG database.
+Today's date is {today.isoformat()}.
+
+You have one tool:
+  generate_gaming_report — comprehensive multi-section report across genres and a date range
+
+When invoking generate_gaming_report:
+  - Include the genres, game modes, and dates from the user's request.
+  - If the user did NOT specify dates, do NOT pass date_from or date_to — the tool defaults
+    to the last 14 days ({default_from} → {default_to}). NEVER guess or invent dates.
+  - Do NOT use dates from your training data — always rely on today = {today.isoformat()}.
+
+NEVER fabricate data; use only tool-provided information.
+
+Valid game_genres values (use exact strings):
+  action, adventure, rpg, strategy, sports, racing, simulation,
+  puzzle, shooter, platformer, fighting, horror, survival, indie
+
+Valid game_modes values (use exact strings — underscores, not spaces):
+  online, offline, single_player, multi_player"""
+
+_REVIEW_SUBAGENT_INSTRUCTIONS = """
+You are a game review sentiment analyst backed by the live RAWG database.
+
+You have three tools:
+  1. search_games          — find a game by name to obtain its game_id
+  2. get_game_info         — fetch current metadata for a known game_id
+  3. analyze_game_reviews  — deep sentiment analysis of user reviews for a known game_id
+
+Workflow: search_games → get_game_info → analyze_game_reviews
+NEVER fabricate reviews or sentiment; use only tool-provided information.
+""".strip()
+
+
+# ---------------------------------------------------------------------------
+# OpenAI Agent SDK parent — the public surface of this module
+# ---------------------------------------------------------------------------
+
+
+class GameNewsAgent:
+    """OpenAI Agent SDK parent that hands off to two specialist subagents.
+
+    Subagents
+    ---------
+    GameNewsReportAgent      — wraps GameNewsReportWorkflow (LangGraph)
+    GameReviewAnalysisAgent  — wraps ReviewAnalysisWorkflow (LangGraph) + RAWG tools
+
+    The parent agent uses SDK *handoffs* (not as_tool) so that control is fully
+    transferred to whichever subagent is relevant for the user's request.
+    """
+
+    _sessions: ClassVar[dict[str, Session]] = {}
+
+    # ------------------------------------------------------------------
+    # Subagent builders  (built per-request so event_queue can be closed over)
+    # ------------------------------------------------------------------
+
+    def _build_report_subagent(
+        self,
+        event_queue: EventQueue,
+        context_id: str,
+        task_id: str | None,
+    ) -> Agent:
+        """GameNewsReportAgent — wraps GameNewsReportWorkflow as a single function tool."""
+
+        @function_tool
+        async def generate_gaming_report(
+            game_genres: list[str],
+            date_from: str | None = None,
+            date_to: str | None = None,
+            game_modes: list[str] | None = None,
+        ) -> str:
+            """Generate a multi-section gaming trends report for the given genres and date range.
+
+            Args:
+                game_genres: List of game genre names.
+                    Valid values: action, adventure, rpg, strategy, sports, racing,
+                    simulation, puzzle, shooter, platformer, fighting, horror, survival, indie
+                date_from: Start date in ISO format (YYYY-MM-DD).
+                    Defaults to 14 days before today when not specified.
+                date_to: End date in ISO format (YYYY-MM-DD).
+                    Defaults to today when not specified. Must be within 31 days of date_from.
+                game_modes: List of game modes. Defaults to all modes when not specified.
+                    Valid values: online, offline, single_player, multi_player
+            """
+            from datetime import timedelta
+
+            from pydantic import ValidationError
+
+            from game_news_agent.models import GameGenre, GameMode, GameReportRequest
+
+            today = date.today()
+            resolved_date_from = date.fromisoformat(date_from) if date_from else today - timedelta(days=14)
+            resolved_date_to = date.fromisoformat(date_to) if date_to else today
+            resolved_modes = game_modes  # None means no tag filter (all modes)
+
+            genres_display = ", ".join(game_genres)
+            await event_queue.enqueue_event(
+                TaskStatusUpdateEvent(
+                    context_id=context_id,
+                    task_id=task_id or "",
+                    final=False,
+                    status=TaskStatus(
+                        state=TaskState.working,
+                        message=new_agent_text_message(
+                            text=(
+                                f"Generating gaming report for {genres_display} "
+                                f"({resolved_date_from} \u2192 {resolved_date_to})\u2026"
+                            ),
+                            context_id=context_id,
+                            task_id=task_id,
+                        ),
+                    ),
+                )
+            )
+
+            try:
+                request = GameReportRequest(
+                    game_genres=[GameGenre(g.lower()) for g in game_genres],
+                    date_from=resolved_date_from,
+                    date_to=resolved_date_to,
+                    game_modes=[GameMode(m.lower()) for m in resolved_modes] if resolved_modes else None,
+                )
+            except (ValueError, ValidationError) as exc:
+                logger.warning(f"Invalid generate_gaming_report parameters: {exc}")
+                valid_genres = ", ".join(g.value for g in GameGenre)
+                valid_modes = ", ".join(m.value for m in GameMode)
+                return (
+                    f"Invalid parameters: {exc}.\n"
+                    f"Valid game_genres: {valid_genres}.\n"
+                    f"Valid game_modes: {valid_modes}."
+                )
+
+            response = await GameNewsReportWorkflow().invoke(request, context_id)
+
+            if response.validation_errors:
+                return "Report generation failed: " + "; ".join(response.validation_errors)
+
+            text_part = TextPart(
+                text=response.report_markdown,
+                metadata={"mime_type": "text/markdown", "fact_checked": response.fact_check_passed},
+            )
+            artifact = Artifact(
+                artifact_id=f"gaming-report-{context_id}",
+                name="Gaming Report",
+                description=f"Gaming report for {genres_display}",
+                parts=[Part(root=text_part)],
+                metadata={
+                    "fact_checked": response.fact_check_passed,
+                    "generated_at": response.generated_at.isoformat(),
+                    "date_range": {"from": resolved_date_from.isoformat(), "to": resolved_date_to.isoformat()},
+                    "genres": game_genres,
+                    "game_modes": resolved_modes,
+                },
+            )
+            await event_queue.enqueue_event(
+                TaskArtifactUpdateEvent(
+                    context_id=context_id,
+                    task_id=task_id or "",
+                    artifact=artifact,
+                    last_chunk=True,
+                )
+            )
+            logger.info(f"Gaming report artifact enqueued: fact_checked={response.fact_check_passed}")
+
+            # Return a summary so the LLM knows what was actually found and doesn't retry blindly
+            sections = response.sections
+            total_games = (
+                len(sections.highly_anticipated or [])
+                + len(sections.recently_released or [])
+                + len(sections.upcoming_games or [])
+                + len(sections.poorly_received or [])
+            )
+            if total_games == 0:
+                return (
+                    f"Gaming report generated for {genres_display} "
+                    f"({resolved_date_from} \u2192 {resolved_date_to}), "
+                    f"but no games were found for those criteria. "
+                    f"The report has been delivered. "
+                    f"Consider asking the user if they'd like to try a wider date range or different genres."
+                )
+            non_empty = [
+                s for s in [
+                    sections.highly_anticipated,
+                    sections.recently_released,
+                    sections.upcoming_games,
+                    sections.poorly_received,
+                ] if s
+            ]
+            return (
+                f"Gaming report generated and delivered for {genres_display} "
+                f"({resolved_date_from} \u2192 {resolved_date_to}). "
+                f"Found {total_games} games across {len(non_empty)} sections. "
+                f"Fact-checked: {response.fact_check_passed}."
+            )
+
+        return Agent(
+            name="GameNewsReportAgent",
+            model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o"),
+            instructions=_report_subagent_instructions(date.today()),
+            tools=[generate_gaming_report],
+        )
+
+    def _build_review_subagent(
+        self,
+        event_queue: EventQueue,
+        context_id: str,
+        task_id: str | None,
+        game_service: RAWGKiotaClient,
+    ) -> Agent:
+        """GameReviewAnalysisAgent — RAWG lookup tools + ReviewAnalysisWorkflow."""
+
+        @function_tool
+        async def search_games(query: str) -> str:
+            """Search for games by name.
+
+            Returns a JSON list of matches with game_id, name, released, rating, metacritic.
+            Use before get_game_info or analyze_game_reviews to resolve a name to a game_id.
+            Results are ordered by RAWG relevance so the closest match appears first.
+
+            Args:
+                query: Game name or partial name to search for (e.g. "Elden Ring", "Cyberpunk")
+            """
+            results = await game_service.search_games(
+                query,
+                page_size=5,
+                search_precise=True,
+                search_exact=False,
+            )
+            games = [
+                {
+                    "game_id": g.get("id"),
+                    "name": g.get("name"),
+                    "released": g.get("released"),
+                    "rating": g.get("rating"),
+                    "metacritic": g.get("metacritic"),
+                }
+                for g in (results or [])
+            ]
+            logger.info(f"search_games: {len(games)} results for query={query!r}")
+            return json.dumps(games, cls=_DateEncoder)
+
+        @function_tool
+        async def get_game_info(game_id: int) -> str:
+            """Fetch current metadata for a known game by its RAWG game_id.
+
+            Args:
+                game_id: The RAWG numeric game identifier
+            """
+            game = await game_service.get_game_details(game_id)
+            info = game_service._game_to_dict(game)  # noqa: SLF001
+            logger.info(f"get_game_info: data for game_id={game_id}")
+            return json.dumps(info, cls=_DateEncoder)
+
+        @function_tool
+        async def analyze_game_reviews(game_id: int, review_count: int = 20) -> str:
+            """Perform sentiment analysis on user reviews for a game.
+
+            Args:
+                game_id: The RAWG numeric game identifier
+                review_count: How many reviews to analyse (default 20)
+            """
+            from game_news_agent.models import ReviewAnalysisRequest
+            from game_news_agent.review_analyzer import ReviewAnalysisWorkflow
+
+            await event_queue.enqueue_event(
+                TaskStatusUpdateEvent(
+                    context_id=context_id,
+                    task_id=task_id or "",
+                    final=False,
+                    status=TaskStatus(
+                        state=TaskState.working,
+                        message=new_agent_text_message(
+                            text=f"Analysing {review_count} reviews for game {game_id}\u2026",
+                            context_id=context_id,
+                            task_id=task_id,
+                        ),
+                    ),
+                )
+            )
+
+            request = ReviewAnalysisRequest(game_id=game_id, review_count=review_count)
+            response = await ReviewAnalysisWorkflow().invoke(request, context_id)
+
+            if response.validation_errors:
+                return "Review analysis failed: " + "; ".join(response.validation_errors)
+
+            text_part = TextPart(
+                text=response.analysis_markdown,
+                metadata={
+                    "mime_type": "text/markdown",
+                    "game_id": response.game.id,
+                    "game_name": response.game.name,
+                },
+            )
+            artifact = Artifact(
+                artifact_id=f"review-analysis-{context_id}",
+                name=f"Review Analysis: {response.game.name}",
+                description=(
+                    f"Sentiment analysis of {response.positive_reviews.review_count} positive and "
+                    f"{response.negative_reviews.review_count} negative reviews"
+                ),
+                parts=[Part(root=text_part)],
+                metadata={
+                    "game_id": response.game.id,
+                    "game_name": response.game.name,
+                    "game_rating": response.game.rating,
+                    "generated_at": response.generated_at.isoformat(),
+                    "positive_themes": response.positive_reviews.common_themes,
+                    "negative_themes": response.negative_reviews.common_themes,
+                },
+            )
+            await event_queue.enqueue_event(
+                TaskArtifactUpdateEvent(
+                    context_id=context_id,
+                    task_id=task_id or "",
+                    artifact=artifact,
+                    last_chunk=True,
+                )
+            )
+            logger.info(f"Review analysis artifact enqueued for game_id={game_id}")
+            return f"Review analysis for '{response.game.name}' generated and delivered."
+
+        return Agent(
+            name="GameReviewAnalysisAgent",
+            model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o"),
+            instructions=_REVIEW_SUBAGENT_INSTRUCTIONS,
+            tools=[search_games, get_game_info, analyze_game_reviews],
+        )
+
+    def _build_parent(
+        self,
+        event_queue: EventQueue,
+        context_id: str,
+        task_id: str | None,
+        game_service: RAWGKiotaClient,
+    ) -> Agent:
+        """Build the parent agent with handoffs to the two specialist subagents."""
+        report_agent = self._build_report_subagent(event_queue, context_id, task_id)
+        review_agent = self._build_review_subagent(event_queue, context_id, task_id, game_service)
+
+        return Agent(
+            name="GameNewsAgent",
+            model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o"),
+            instructions=_parent_instructions(date.today()),
+            handoffs=[report_agent, review_agent],
+        )
+
+    # ------------------------------------------------------------------
+    # Input helper
+    # ------------------------------------------------------------------
+
+    def _build_runner_input(
+        self, context: RequestContext
+    ) -> str | list[ResponseInputItemParam]:
+        """Convert A2A message parts into a Runner.run-compatible input."""
+        if not context.message or not context.message.parts:
+            return context.get_user_input()
+
+        content_blocks: list[ResponseInputContentParam] = []
+        for part in context.message.parts:
+            if isinstance(part.root, TextPart):
+                content_blocks.append(ResponseInputTextParam(type="input_text", text=part.root.text))
+            elif isinstance(part.root, DataPart):
+                raw = part.root.data
+                if isinstance(raw, (dict, list)):
+                    text = json.dumps(raw)
+                elif isinstance(raw, bytes):
+                    text = raw.decode("utf-8")
+                else:
+                    text = str(raw)
+                content_blocks.append(ResponseInputTextParam(type="input_text", text=text))
+
+        if not content_blocks:
+            return context.get_user_input()
+
+        # Single plain-text part — keep as string
+        if len(content_blocks) == 1 and content_blocks[0]["type"] == "input_text":
+            return content_blocks[0]["text"]
+
+        return [EasyInputMessageParam(role="user", content=content_blocks)]  # type: ignore[list-item]
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    async def invoke(
+        self,
+        context: RequestContext,
+        context_id: str,
+        event_queue: EventQueue,
+    ) -> str:
+        """Run the parent orchestrator and return the final output text.
+
+        Artifacts (report / review analysis) are streamed directly to
+        *event_queue* from within the subagent tools before this method returns.
+        """
+        logger.info(f"GameNewsAgent.invoke context_id={context_id}")
+        runner_input = self._build_runner_input(context)
+        logger.info(
+            f"Runner input type={type(runner_input).__name__}, "
+            f"preview={str(runner_input)[:200]}"
+        )
+        async with RAWGKiotaClient() as game_service:
+            agent = self._build_parent(event_queue, context_id, context.task_id, game_service)
+            session = get_or_create_session(
+                sessions=GameNewsAgent._sessions,
+                context_id=context_id,
+            )
+            result = await Runner.run(starting_agent=agent, input=runner_input, session=session)
+
+        # Log every item produced during this run for observability
+        for item in result.new_items:
+            if isinstance(item, MessageOutputItem):
+                text_preview = ""
+                for block in getattr(item.raw_item, "content", []) or []:
+                    if getattr(block, "type", None) == "output_text":
+                        text_preview += getattr(block, "text", "")
+                logger.info(
+                    "[%s] agent=%s message=%s",
+                    type(item).__name__,
+                    getattr(item, "agent", {}) and item.agent.name,
+                    text_preview[:500],
+                )
+            elif isinstance(item, ToolCallItem):
+                raw = item.raw_item
+                logger.info(
+                    "[%s] agent=%s tool=%s args=%s",
+                    type(item).__name__,
+                    item.agent.name,
+                    getattr(raw, "name", "?"),
+                    str(getattr(raw, "arguments", ""))[:500],
+                )
+            elif isinstance(item, ToolCallOutputItem):
+                logger.info(
+                    "[%s] tool_output=%s",
+                    type(item).__name__,
+                    str(item.output)[:500],
+                )
+            elif isinstance(item, HandoffCallItem):
+                logger.info(
+                    "[%s] from=%s handoff=%s",
+                    type(item).__name__,
+                    item.agent.name,
+                    getattr(item.raw_item, "name", "?"),
+                )
+            elif isinstance(item, HandoffOutputItem):
+                logger.info(
+                    "[%s] source=%s target=%s",
+                    type(item).__name__,
+                    item.source_agent.name,
+                    item.target_agent.name,
+                )
+            elif isinstance(item, ReasoningItem):
+                raw = item.raw_item
+                logger.info(
+                    "[%s] reasoning=%s",
+                    type(item).__name__,
+                    str(getattr(raw, "summary", "") or getattr(raw, "text", ""))[:300],
+                )
+
+        return (result.final_output or "").strip()

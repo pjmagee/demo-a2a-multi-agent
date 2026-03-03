@@ -53,11 +53,11 @@ class ReviewAnalysisState(TypedDict):
     error_message: str | None
 
 
-class ReviewAnalyzer:
-    """LangGraph-based review analyzer with sentiment analysis."""
+class ReviewAnalysisWorkflow:
+    """LangGraph-based review analysis workflow for game sentiment analysis."""
 
     def __init__(self, llm: ChatOpenAI | None = None):
-        """Initialize the review analyzer.
+        """Initialize the review analysis workflow.
 
         Args:
             llm: Optional ChatOpenAI instance (created from env if not provided)
@@ -414,7 +414,7 @@ Respond in JSON format:
         Returns:
             ReviewAnalysisResponse with positive/negative summaries
         """
-        logger.info(f"Starting review analysis for game_id={request.game_id}, context_id={context_id}")
+        logger.info(f"ReviewAnalysisWorkflow.invoke game_id={request.game_id}, context_id={context_id}")
 
         # Initialize state
         initial_state: ReviewAnalysisState = {

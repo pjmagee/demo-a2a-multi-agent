@@ -28,7 +28,11 @@
                 "run",
                 "--project",
                 "mcp_a2a_bridge/McpA2aBridge"
-            ]
+            ],
+            "env": {
+                "ASPIRE_DASHBOARD_MCP_ENDPOINT_URL": "${env:ASPIRE_DASHBOARD_MCP_ENDPOINT_URL}",
+                "A2A_REGISTRY_URL": "${env:A2A_REGISTRY_URL}"
+            }
         }
     }
 }

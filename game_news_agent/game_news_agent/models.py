@@ -51,10 +51,9 @@ class GameReportRequest(BaseModel):
         ...,
         description="End date for filtering games/articles (ISO 8601 format: YYYY-MM-DD). Must be >= date_from and within 31 days of date_from.",
     )
-    game_modes: list[GameMode] = Field(
-        ...,
-        min_length=1,
-        description="Game modes to filter by",
+    game_modes: list[GameMode] | None = Field(
+        None,
+        description="Game modes to filter by. When None, no mode filter is applied (all modes).",
     )
 
     @field_validator("date_to")
