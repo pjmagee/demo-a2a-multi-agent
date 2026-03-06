@@ -50,16 +50,10 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
         const lastUser = [...messages].reverse().find((m) => (m as ThreadMessageLike).role === "user") as ThreadMessageLike | undefined;
         const echoed = lastUser && typeof lastUser.content === "string" ? (lastUser.content as string) : "";
         return {
-          messages: [
+          content: [
             {
-              id: `assistant-${Date.now()}`,
-              role: "assistant",
-              content: [
-                {
-                  type: "text",
-                  text: `Please select an agent from the right sidebar before continuing.${echoed ? `\n\n(You said: ${echoed})` : ""}`,
-                },
-              ],
+              type: "text" as const,
+              text: `Please select an agent from the right sidebar before continuing.${echoed ? `\n\n(You said: ${echoed})` : ""}`,
             },
           ],
         } as ChatModelRunResult;
@@ -103,21 +97,15 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
         const errorText = await resp.text().catch(() => "");
         const info = errorText || `HTTP ${resp.status}`;
         return {
-          messages: [
-            {
-              id: `assistant-${Date.now()}`,
-              role: "assistant",
-              content: [
-                { type: "text", text: `Request failed before streaming started: ${info}` },
-              ],
-            },
+          content: [
+            { type: "text" as const, text: `Request failed before streaming started: ${info}` },
           ],
         } as ChatModelRunResult;
       }
       if (!resp.body) {
         return {
-          messages: [
-            { id: `assistant-${Date.now()}`, role: "assistant", content: [{ type: "text", text: "Stream unavailable" }] },
+          content: [
+            { type: "text" as const, text: "Stream unavailable" },
           ],
         } as ChatModelRunResult;
       }
@@ -168,12 +156,8 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
       }
       const textOut = completeReceived ? (finalText || accumulated) : (accumulated || finalText);
       return {
-        messages: [
-          {
-            id: `assistant-${Date.now()}`,
-            role: "assistant",
-            content: [ { type: "text", text: textOut || "[empty response]" } ],
-          },
+        content: [
+          { type: "text" as const, text: textOut || "[empty response]" },
         ],
       } as ChatModelRunResult;
     },

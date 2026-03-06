@@ -12,13 +12,17 @@ from dotenv import load_dotenv
 # Load .env file before any other imports that might use environment variables
 load_dotenv()
 
+from shared.phoenix_setup import setup_phoenix_tracing
+
+# Instrument before importing agent/LLM modules
+setup_phoenix_tracing("game-news-agent")
+
 from a2a.server.apps import A2AFastAPIApplication
 from a2a.server.events import InMemoryQueueManager
 from a2a.server.request_handlers import DefaultRequestHandler
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from shared.mongodb_task_store import MongoDBTaskStore
-from shared.otel_config import configure_telemetry
 from shared.registry_client import register_with_registry, unregister_from_registry
 
 from game_news_agent.agent_card import build_agent_card
@@ -133,9 +137,6 @@ def _create_application() -> FastAPI:
 
 # Create the application
 app = _create_application()
-
-# Configure OpenTelemetry for Aspire integration
-configure_telemetry("game-news-agent")
 
 if __name__ == "__main__":
     import uvicorn

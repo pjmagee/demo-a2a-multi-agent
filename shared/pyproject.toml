@@ -15,6 +15,15 @@ dependencies = [
   "opentelemetry-instrumentation-httpx",
   "opentelemetry-instrumentation-logging",
   "opentelemetry-exporter-otlp-proto-grpc",
+  # Phoenix LLM observability
+  "arize-phoenix-otel",
+  # OpenInference auto-instrumentors
+  # Instruments the OpenAI Agents SDK (openai-agents) – used by most agents
+  "openinference-instrumentation-openai-agents",
+  # Instruments the raw openai client (used by some agents directly)
+  "openinference-instrumentation-openai",
+  # Instruments LangChain + LangGraph – used by game_news_agent
+  "openinference-instrumentation-langchain",
 ]
 
 [tool.uv]

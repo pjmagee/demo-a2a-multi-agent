@@ -5,9 +5,9 @@ from typing import override
 
 from a2a.server.agent_execution import AgentExecutor
 from a2a.server.agent_execution.context import RequestContext
+from shared.traced_executor import a2a_session
 from a2a.server.events.event_queue import EventQueue
 from a2a.utils import new_agent_text_message
-from shared.openai_session_helpers import ensure_context_id
 
 from weather_agent.agent import WeatherAgent
 
@@ -22,36 +22,34 @@ class WeatherAgentExecutor(AgentExecutor):
 
     @override
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
-        # Ensure context_id exists (A2A protocol: server creates if not provided)
-        context_id: str = ensure_context_id(context=context)
+        with a2a_session(context, type(self).__name__) as context_id:
+            try:
+                # Invoke agent with guaranteed context_id
+                response_text: str = await self.agent.invoke(
+                    context=context,
+                    context_id=context_id,
+                )
+            except Exception:
+                logger.exception(
+                    "Agent invocation failed context_id=%s",
+                    context_id,
+                )
+                response_text = (
+                    "I apologize, but I encountered an error processing your request."
+                )
 
-        try:
-            # Invoke agent with guaranteed context_id
-            response_text: str = await self.agent.invoke(
-                context=context,
-                context_id=context_id,
-            )
-        except Exception:
-            logger.exception(
-                "Agent invocation failed context_id=%s",
+            logger.info(
+                "Executor sending response context_id=%s text=%s",
                 context_id,
+                response_text,
             )
-            response_text = (
-                "I apologize, but I encountered an error processing your request."
+            await event_queue.enqueue_event(
+                event=new_agent_text_message(
+                    context_id=context_id,
+                    text=response_text,
+                    task_id=context.task_id,
+                ),
             )
-
-        logger.info(
-            "Executor sending response context_id=%s text=%s",
-            context_id,
-            response_text,
-        )
-        await event_queue.enqueue_event(
-            event=new_agent_text_message(
-                context_id=context_id,
-                text=response_text,
-                task_id=context.task_id,
-            ),
-        )
 
     @override
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:

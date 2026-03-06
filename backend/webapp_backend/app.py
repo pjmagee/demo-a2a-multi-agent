@@ -7,7 +7,7 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from shared.otel_config import configure_telemetry
+from shared.phoenix_setup import setup_phoenix_tracing
 
 from webapp_backend.api.routes import router
 from webapp_backend.config import Settings, get_settings
@@ -15,7 +15,7 @@ from webapp_backend.logging import configure_logging
 
 # Initialize logging and telemetry at module import time
 configure_logging()
-configure_telemetry("backend")
+setup_phoenix_tracing("backend")
 
 PORT = int(os.getenv(key="PORT", default="8100"))
 HOST: str = os.getenv(key="HOST", default="127.0.0.1")

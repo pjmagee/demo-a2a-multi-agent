@@ -16,14 +16,14 @@ from a2a.server.tasks import (
 )
 from a2a.server.tasks.inmemory_task_store import InMemoryTaskStore
 from fastapi import FastAPI
-from shared.otel_config import configure_telemetry
+from shared.phoenix_setup import setup_phoenix_tracing
 from shared.registry_client import register_with_registry, unregister_from_registry
+
+# Instrument before importing agent/LLM modules
+setup_phoenix_tracing("police-agent")
 
 from police_agent.agent_card import build_agent_card
 from police_agent.executor import PoliceAgentExecutor
-
-# Initialize OpenTelemetry for Aspire dashboard
-configure_telemetry("police-agent")
 
 logger = logging.getLogger(__name__)
 

@@ -1,25 +1,27 @@
-"""Phoenix Observability Setup for A2A Agents.
+"""Integrated Phoenix + Aspire observability setup for A2A agents.
 
-This module provides centralized Phoenix tracing configuration for all agents in the
-demo-a2a-multi-agent system. It handles:
+Provides a single ``setup_phoenix_tracing(service_name)`` function that:
 
-- OpenTelemetry instrumentation via Phoenix
-- Auto-instrumentation of OpenAI SDK
-- Session and project tracking
-- Environment-based configuration
-- Graceful degradation when Phoenix is unavailable
+- Instruments the OpenAI Agents SDK, LangGraph/LangChain, and raw OpenAI
+  client via the installed openinference auto-instrumentors.
+- Exports LLM traces to Phoenix (reads ``PHOENIX_COLLECTOR_ENDPOINT``).
+- Dual-exports *all* spans to the Aspire dashboard
+  (reads ``OTEL_EXPORTER_OTLP_ENDPOINT``, injected automatically by Aspire).
+- Falls back to Aspire-only tracing when Phoenix is unavailable.
+- Configures Aspire metrics and structured logging over OTLP gRPC.
+- Auto-instruments FastAPI and httpx for HTTP observability.
 
-Usage:
+Usage::
+
+    # app.py – call once, as early as possible (after load_dotenv if present)
     from shared.phoenix_setup import setup_phoenix_tracing
+    setup_phoenix_tracing("my-agent")
 
-    # In your agent's app.py, before any other imports
-    setup_phoenix_tracing()
-
-Environment Variables:
-    PHOENIX_COLLECTOR_ENDPOINT: Phoenix endpoint URL (default: http://localhost:6006)
-    PHOENIX_PROJECT_NAME: Project name for grouping traces (default: demo-a2a-multi-agent)
-    PHOENIX_ENABLED: Enable/disable tracing (default: true)
-    PHOENIX_API_KEY: API key for Phoenix Cloud (optional, for self-hosted)
+Environment variables:
+    PHOENIX_COLLECTOR_ENDPOINT  Phoenix base URL (e.g. ``http://phoenix:6006``)
+                                Set automatically by Aspire via AppHost.cs.
+    PHOENIX_PROJECT_NAME        Phoenix project name (default: ``demo-a2a-multi-agent``)
+    OTEL_EXPORTER_OTLP_ENDPOINT Aspire OTLP gRPC endpoint (injected by Aspire).
 """
 
 import logging
@@ -28,222 +30,193 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# Track initialization state to prevent double-registration
-_phoenix_initialized = False
+_initialized = False
 
 
-def setup_phoenix_tracing(
-    project_name: str | None = None,
-    endpoint: str | None = None,
-    enable_tracing: bool = True,
-) -> bool:
-    """Initialize Phoenix tracing for the current agent.
+class _SessionIdBaggageSpanProcessor:
+    """Copy ``session.id`` from OTel baggage onto every new span.
 
-    This function:
-    1. Checks if Phoenix is enabled (via environment or parameter)
-    2. Configures OpenTelemetry with Phoenix endpoint
-    3. Auto-instruments OpenAI SDK for automatic trace capture
-    4. Sets up project and session tracking
-    5. Handles errors gracefully if Phoenix is unavailable
-
-    Args:
-        project_name: Project name for grouping traces. Defaults to PHOENIX_PROJECT_NAME env var
-                     or "demo-a2a-multi-agent"
-        endpoint: Phoenix endpoint URL. Defaults to PHOENIX_COLLECTOR_ENDPOINT env var
-                 or "http://localhost:6006"
-        enable_tracing: Whether to enable tracing. Defaults to PHOENIX_ENABLED env var or True
-
-    Returns:
-        bool: True if Phoenix was successfully initialized, False otherwise
-
-    Example:
-        >>> from shared.phoenix_setup import setup_phoenix_tracing
-        >>> setup_phoenix_tracing()
-        INFO: Phoenix tracing initialized (project=demo-a2a-multi-agent, endpoint=http://localhost:6006)
-        True
+    Executors attach ``session.id`` as OTel baggage via ``a2a_session``.
+    This processor reads it on ``on_start`` so *all* child spans – including
+    those created by openinference instrumentors inside the SDK – automatically
+    carry ``session.id`` without manual plumbing.
     """
-    global _phoenix_initialized
 
-    # Prevent double initialization
-    if _phoenix_initialized:
-        logger.debug("Phoenix tracing already initialized, skipping")
-        return True
+    def on_start(self, span, parent_context=None):  # type: ignore[override]
+        from opentelemetry import baggage
+        from opentelemetry.context import get_current
 
-    # Check if tracing is enabled
-    enabled = os.environ.get("PHOENIX_ENABLED", "true").lower() == "true"
-    if not enable_tracing or not enabled:
-        logger.info("Phoenix tracing is disabled")
-        return False
-
-    # Get configuration from environment or parameters
-    project_name = (
-        project_name
-        or os.environ.get("PHOENIX_PROJECT_NAME")
-        or "demo-a2a-multi-agent"
-    )
-    endpoint = (
-        endpoint or os.environ.get("PHOENIX_COLLECTOR_ENDPOINT") or "http://localhost:6006"
-    )
-
-    try:
-        # Import Phoenix OTEL registration
-        # This should be done as early as possible, ideally before importing OpenAI
-        from phoenix.otel import register
-
-        # Register Phoenix tracing with auto-instrumentation
-        tracer_provider = register(
-            project_name=project_name,
-            endpoint=endpoint,
-            auto_instrument=True,  # Auto-instrument OpenAI, LangChain, etc.
-            batch=True,  # Use batch span processor (production best practice)
-        )
-
-        _phoenix_initialized = True
-        logger.info(
-            f"Phoenix tracing initialized (project={project_name}, endpoint={endpoint})"
-        )
-        return True
-
-    except ImportError:
-        logger.warning(
-            "Phoenix OTEL package not installed. Install with: pip install arize-phoenix-otel"
-        )
-        return False
-    except Exception as e:
-        logger.warning(f"Failed to initialize Phoenix tracing: {e}")
-        logger.debug("Continuing without Phoenix tracing")
-        return False
-
-
-def add_session_attributes(session_id: str, user_id: Optional[str] = None) -> None:
-    """
-    Add session and user tracking attributes to Phoenix traces.
-
-    This enriches traces with session context, allowing you to:
-    - Group traces by conversation/session
-    - Track user interactions
-    - Analyze session-level metrics
-
-    Args:
-        session_id: Unique identifier for the current session/conversation
-        user_id: Optional user identifier
-
-    Example:
-        >>> from shared.phoenix_setup import add_session_attributes
-        >>> add_session_attributes(session_id="conv_123", user_id="user_456")
-    """
-    try:
-        from opentelemetry import trace
-
-        tracer = trace.get_tracer(__name__)
-        span = trace.get_current_span()
-
-        if span and span.is_recording():
+        ctx = parent_context if parent_context is not None else get_current()
+        session_id = baggage.get_baggage("session.id", ctx)
+        if session_id:
             span.set_attribute("session.id", session_id)
-            if user_id:
-                span.set_attribute("user.id", user_id)
-            logger.debug(
-                f"Added session attributes (session_id={session_id}, user_id={user_id})"
+
+    def on_end(self, span) -> None:  # type: ignore[override]
+        pass
+
+    def shutdown(self) -> None:
+        pass
+
+    def force_flush(self, timeout_millis: int = 30_000) -> bool:
+        return True
+
+
+def setup_phoenix_tracing(service_name: str) -> None:
+    """Configure Phoenix LLM tracing and Aspire telemetry for *service_name*.
+
+    Safe to call multiple times – subsequent calls are no-ops.
+
+    Args:
+        service_name: Logical service name used for Aspire resource attributes
+                      and Phoenix project grouping (e.g. ``"firebrigade-agent"``).
+    """
+    global _initialized
+    if _initialized:
+        return
+    _initialized = True
+
+    project_name = os.environ.get("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent")
+    phoenix_endpoint = os.environ.get("PHOENIX_COLLECTOR_ENDPOINT")
+    aspire_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+
+    # Ensure service.name is set for both Phoenix and Aspire dashboard labelling.
+    # register() reads OTEL_SERVICE_NAME; Aspire also uses it to identify services.
+    os.environ.setdefault("OTEL_SERVICE_NAME", service_name)
+
+    # ── 1. Phoenix LLM Tracing ──────────────────────────────────────────────
+    # phoenix.otel.register() reads PHOENIX_COLLECTOR_ENDPOINT and constructs
+    # the OTLP HTTP URL (appends /v1/traces).  auto_instrument=True activates
+    # every installed openinference instrumentor:
+    #   openinference-instrumentation-openai-agents  → OpenAI Agents SDK
+    #   openinference-instrumentation-openai         → raw openai client
+    #   openinference-instrumentation-langchain      → LangChain + LangGraph
+    tracer_provider = None
+    if phoenix_endpoint:
+        try:
+            from phoenix.otel import register
+
+            tracer_provider = register(
+                project_name=project_name,
+                auto_instrument=True,
+                batch=True,
             )
-    except ImportError:
-        logger.debug("OpenTelemetry not available, skipping session attributes")
-    except Exception as e:
-        logger.debug(f"Failed to add session attributes: {e}")
+            logger.info(
+                "Phoenix tracing configured (project=%s, endpoint=%s)",
+                project_name,
+                phoenix_endpoint,
+            )
+        except ImportError:
+            logger.warning(
+                "arize-phoenix-otel not installed – Phoenix tracing disabled. "
+                "Add arize-phoenix-otel to shared/pyproject.toml."
+            )
+        except Exception as exc:
+            logger.warning("Phoenix tracing setup failed: %s", exc)
+    else:
+        logger.warning("PHOENIX_COLLECTOR_ENDPOINT not set – Phoenix tracing disabled.")
 
+    # ── 2. Aspire span export (dual-export onto the same provider) ──────────
+    if aspire_endpoint and tracer_provider is not None:
+        try:
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+            from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-def add_custom_attributes(**attributes) -> None:
-    """
-    Add custom attributes to the current Phoenix trace span.
+            # replace_default_processor=False preserves Phoenix's exporter instead of replacing it
+            tracer_provider.add_span_processor(
+                BatchSpanProcessor(OTLPSpanExporter(endpoint=aspire_endpoint)),
+                replace_default_processor=False,
+            )
+            logger.info("Aspire span export added (endpoint=%s)", aspire_endpoint)
+        except Exception as exc:
+            logger.warning("Could not add Aspire span exporter: %s", exc)
 
-    Use this to enrich traces with domain-specific metadata:
-    - Agent type/role
-    - Request identifiers
-    - Business context
-    - Feature flags
-
-    Args:
-        **attributes: Key-value pairs to add as span attributes
-
-    Example:
-        >>> from shared.phoenix_setup import add_custom_attributes
-        >>> add_custom_attributes(
-        ...     agent_type="emergency_operator",
-        ...     priority="high",
-        ...     incident_id="INC-2026-001234"
-        ... )
-    """
-    try:
-        from opentelemetry import trace
-
-        span = trace.get_current_span()
-        if span and span.is_recording():
-            for key, value in attributes.items():
-                span.set_attribute(f"custom.{key}", str(value))
-            logger.debug(f"Added custom attributes: {attributes}")
-    except ImportError:
-        logger.debug("OpenTelemetry not available, skipping custom attributes")
-    except Exception as e:
-        logger.debug(f"Failed to add custom attributes: {e}")
-
-
-def is_phoenix_initialized() -> bool:
-    """
-    Check if Phoenix tracing has been successfully initialized.
-
-    Returns:
-        bool: True if Phoenix is initialized and ready to capture traces
-    """
-    return _phoenix_initialized
-
-
-# Optional: Context manager for custom spans
-class phoenix_span:
-    """
-    Context manager for creating custom trace spans in Phoenix.
-
-    Use this when you want to trace specific operations that aren't automatically
-    instrumented, such as:
-    - Business logic processing
-    - Data transformations
-    - External API calls (non-LLM)
-
-    Args:
-        name: Name of the span (describes the operation)
-        attributes: Optional attributes to add to the span
-
-    Example:
-        >>> from shared.phoenix_setup import phoenix_span
-        >>> with phoenix_span("process_emergency_request", incident_type="fire"):
-        ...     result = process_incident(data)
-    """
-
-    def __init__(self, name: str, **attributes):
-        self.name = name
-        self.attributes = attributes
-        self.span = None
-        self.tracer = None
-
-    def __enter__(self):
+    # ── 3. Fallback: Aspire-only tracing when Phoenix is unavailable ─────────
+    if tracer_provider is None and aspire_endpoint:
         try:
             from opentelemetry import trace
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+            from opentelemetry.sdk.resources import Resource
+            from opentelemetry.sdk.trace import TracerProvider
+            from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-            self.tracer = trace.get_tracer(__name__)
-            self.span = self.tracer.start_span(self.name)
+            resource = Resource.create({"service.name": service_name})
+            tracer_provider = TracerProvider(resource=resource)
+            tracer_provider.add_span_processor(
+                BatchSpanProcessor(OTLPSpanExporter(endpoint=aspire_endpoint))
+            )
+            trace.set_tracer_provider(tracer_provider)
+            logger.info("Aspire-only tracing configured (endpoint=%s)", aspire_endpoint)
+        except Exception as exc:
+            logger.warning("Aspire fallback tracing setup failed: %s", exc)
 
-            # Add attributes
-            for key, value in self.attributes.items():
-                self.span.set_attribute(key, str(value))
+    # ── 3.5. Session-ID baggage propagation ──────────────────────────────────
+    if tracer_provider is not None:
+        try:
+            tracer_provider.add_span_processor(
+                _SessionIdBaggageSpanProcessor(),
+                replace_default_processor=False,
+            )
+        except TypeError:
+            # Plain OTel TracerProvider doesn't accept replace_default_processor
+            tracer_provider.add_span_processor(_SessionIdBaggageSpanProcessor())  # type: ignore[arg-type]
+        except Exception as exc:
+            logger.warning("Session-ID baggage processor setup failed: %s", exc)
 
-            return self.span
-        except ImportError:
-            logger.debug("OpenTelemetry not available, span context is a no-op")
-            return None
+    # ── 4. Aspire Metrics ────────────────────────────────────────────────────
+    if aspire_endpoint:
+        try:
+            from opentelemetry import metrics
+            from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+            from opentelemetry.sdk.metrics import MeterProvider
+            from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+            from opentelemetry.sdk.resources import Resource
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.span:
-            if exc_type is not None:
-                # Record exception in span
-                self.span.record_exception(exc_val)
-                self.span.set_status(trace.Status(trace.StatusCode.ERROR))
-            self.span.end()
-        return False  # Don't suppress exceptions
+            resource = Resource.create({"service.name": service_name})
+            metrics.set_meter_provider(
+                MeterProvider(
+                    resource=resource,
+                    metric_readers=[
+                        PeriodicExportingMetricReader(
+                            OTLPMetricExporter(endpoint=aspire_endpoint),
+                            export_interval_millis=5000,
+                        )
+                    ],
+                )
+            )
+        except Exception as exc:
+            logger.warning("Aspire metrics setup failed: %s", exc)
+
+    # ── 5. Aspire Structured Logging ─────────────────────────────────────────
+    if aspire_endpoint:
+        try:
+            from opentelemetry._logs import set_logger_provider
+            from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
+            from opentelemetry.instrumentation.logging import LoggingInstrumentor
+            from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+            from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+            from opentelemetry.sdk.resources import Resource
+
+            resource = Resource.create({"service.name": service_name})
+            log_provider = LoggerProvider(resource=resource)
+            log_provider.add_log_record_processor(
+                BatchLogRecordProcessor(OTLPLogExporter(endpoint=aspire_endpoint))
+            )
+            set_logger_provider(log_provider)
+            logging.getLogger().addHandler(
+                LoggingHandler(level=logging.NOTSET, logger_provider=log_provider)
+            )
+            LoggingInstrumentor().instrument(set_logging_format=True)
+        except Exception as exc:
+            logger.warning("Aspire logging setup failed: %s", exc)
+
+    # ── 6. HTTP auto-instrumentation (FastAPI + httpx) ───────────────────────
+    try:
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+        FastAPIInstrumentor().instrument()
+        HTTPXClientInstrumentor().instrument()
+    except Exception as exc:
+        logger.debug("HTTP auto-instrumentation: %s", exc)
+
+    logger.info("Telemetry setup complete for service=%s", service_name)

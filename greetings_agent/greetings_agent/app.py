@@ -11,14 +11,14 @@ from a2a.server.events import InMemoryQueueManager
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks.inmemory_task_store import InMemoryTaskStore
 from fastapi import FastAPI
-from shared.otel_config import configure_telemetry
+from shared.phoenix_setup import setup_phoenix_tracing
 from shared.registry_client import register_with_registry, unregister_from_registry
+
+# Instrument before importing agent/LLM modules
+setup_phoenix_tracing("greetings-agent")
 
 from greetings_agent.agent_card import build_agent_card
 from greetings_agent.executor import GreetingsAgentExecutor
-
-# Initialize OpenTelemetry for Aspire dashboard
-configure_telemetry("greetings-agent")
 
 logger = logging.getLogger(__name__)
 

@@ -288,7 +288,7 @@ else
         .WithEnvironment("HOST", "0.0.0.0")
         .WithEnvironment("WEBAPP_USE_REGISTRY", "true")
         .WithEnvironment("WEBAPP_DISABLE_AUTH", "true")
-        .WithEnvironment("WEBAPP_ALLOW_ORIGINS", "*")
+        .WithEnvironment("WEBAPP_ALLOW_ORIGINS", "http://localhost:3000")
         .WithEnvironment("WEBAPP_REGISTRY_URL", registry.GetEndpoint("http"))
         .WithEnvironment("PHOENIX_COLLECTOR_ENDPOINT", phoenix.GetEndpoint("ui"))
         .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent")
@@ -326,9 +326,11 @@ else
 
 // Frontend - always runs natively with npm
 var frontend = builder
-    .AddNodeApp("frontend", "../frontend/agent-ui", "dev")
+    .AddJavaScriptApp("frontend", "../frontend/agent-ui")
+    .WithNpm()
+    .WithRunScript("dev")
     .WithHttpEndpoint(port: 3000, env: "PORT")
     .WithEnvironment("HOST", "0.0.0.0")
-    .WithEnvironment("NEXT_PUBLIC_BACKEND_URL", "http://localhost:8100");
+    .WithEnvironment("NEXT_PUBLIC_BACKEND_URL", backend.GetEndpoint("http"));
 
 builder.Build().Run();

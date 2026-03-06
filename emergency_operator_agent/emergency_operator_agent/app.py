@@ -9,14 +9,14 @@ from a2a.server.events import InMemoryQueueManager
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks.inmemory_task_store import InMemoryTaskStore
 from fastapi import FastAPI
-from shared.otel_config import configure_telemetry
+from shared.phoenix_setup import setup_phoenix_tracing
 from shared.registry_client import register_with_registry, unregister_from_registry
+
+# Instrument before importing agent/LLM modules
+setup_phoenix_tracing("emergency-operator-agent")
 
 from emergency_operator_agent.agent_card import build_agent_card
 from emergency_operator_agent.task_executor import TaskOrchestratedExecutor
-
-# Initialize OpenTelemetry for Aspire dashboard
-configure_telemetry("emergency-operator-agent")
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 

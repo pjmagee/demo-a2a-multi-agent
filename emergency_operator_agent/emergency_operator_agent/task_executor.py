@@ -6,11 +6,11 @@ from typing import override
 
 from a2a.server.agent_execution import AgentExecutor
 from a2a.server.agent_execution.context import RequestContext
+from shared.traced_executor import a2a_session
 from a2a.server.events.event_queue import EventQueue
 from a2a.server.tasks.task_store import TaskStore
 from a2a.types import Message, TaskState, TaskStatus, TaskStatusUpdateEvent
 from a2a.utils import new_agent_text_message
-from shared.openai_session_helpers import ensure_context_id
 
 from emergency_operator_agent.task_orchestrator import EmergencyTaskOrchestrator
 
@@ -90,78 +90,77 @@ class TaskOrchestratedExecutor(AgentExecutor):
         event_queue: EventQueue,
     ) -> None:
         """Execute emergency dispatch using task orchestration."""
-        # Ensure context_id exists
-        context_id: str = ensure_context_id(context=context)
-        task_id: str = context.task_id or context_id
+        with a2a_session(context, type(self).__name__) as context_id:
+            task_id: str = context.task_id or context_id
 
-        logger.info(
-            "Starting task orchestration: task_id=%s context_id=%s",
-            task_id,
-            context_id,
-        )
-
-        # Send initial status
-        await self._send_status_update(
-            event_queue=event_queue,
-            task_id=task_id,
-            context_id=context_id,
-            state=TaskState.working,
-            message="Emergency operator analyzing call...",
-        )
-
-        try:
-            # Phase 1: Create task plan
-            user_message = context.get_user_input()
-            logger.error("❌ TRACE: Phase 1 starting for task_id=%s", task_id)
-            task = await self.orchestrator.create_task_plan(
-                task_id=task_id,
-                context_id=context_id,
-                user_message=user_message,
-                event_queue=event_queue,
-            )
-            logger.error(
-                "❌ TRACE: Phase 1 complete - %d steps for task_id=%s",
-                len(task.steps),
+            logger.info(
+                "Starting task orchestration: task_id=%s context_id=%s",
                 task_id,
+                context_id,
             )
 
-            # Phase 2: Execute task plan step-by-step
-            logger.error("❌ TRACE: Phase 2 starting for task_id=%s", task_id)
-            await self.orchestrator.execute_task(
-                task=task,
-                event_queue=event_queue,
-            )
-            logger.error("❌ TRACE: Phase 2 complete for task_id=%s", task_id)
-
-            # Send final completion status
-            logger.error(
-                "❌ TRACE: Sending final status for task_id=%s",
-                task_id,
-            )
+            # Send initial status
             await self._send_status_update(
                 event_queue=event_queue,
                 task_id=task_id,
                 context_id=context_id,
-                state=TaskState.completed,
-                message="[COMPLETE] Emergency dispatch workflow finished",
-                final=True,
+                state=TaskState.working,
+                message="Emergency operator analyzing call...",
             )
 
-        except Exception as e:
-            logger.exception(
-                "Error during task orchestration: task_id=%s",
-                task_id,
-            )
-            # Send failed status
-            await self._send_status_update(
-                event_queue=event_queue,
-                task_id=task_id,
-                context_id=context_id,
-                state=TaskState.failed,
-                message=f"Emergency dispatch failed: {e!s}",
-                final=True,
-            )
-            raise
+            try:
+                # Phase 1: Create task plan
+                user_message = context.get_user_input()
+                logger.error("❌ TRACE: Phase 1 starting for task_id=%s", task_id)
+                task = await self.orchestrator.create_task_plan(
+                    task_id=task_id,
+                    context_id=context_id,
+                    user_message=user_message,
+                    event_queue=event_queue,
+                )
+                logger.error(
+                    "❌ TRACE: Phase 1 complete - %d steps for task_id=%s",
+                    len(task.steps),
+                    task_id,
+                )
+
+                # Phase 2: Execute task plan step-by-step
+                logger.error("❌ TRACE: Phase 2 starting for task_id=%s", task_id)
+                await self.orchestrator.execute_task(
+                    task=task,
+                    event_queue=event_queue,
+                )
+                logger.error("❌ TRACE: Phase 2 complete for task_id=%s", task_id)
+
+                # Send final completion status
+                logger.error(
+                    "❌ TRACE: Sending final status for task_id=%s",
+                    task_id,
+                )
+                await self._send_status_update(
+                    event_queue=event_queue,
+                    task_id=task_id,
+                    context_id=context_id,
+                    state=TaskState.completed,
+                    message="[COMPLETE] Emergency dispatch workflow finished",
+                    final=True,
+                )
+
+            except Exception as e:
+                logger.exception(
+                    "Error during task orchestration: task_id=%s",
+                    task_id,
+                )
+                # Send failed status
+                await self._send_status_update(
+                    event_queue=event_queue,
+                    task_id=task_id,
+                    context_id=context_id,
+                    state=TaskState.failed,
+                    message=f"Emergency dispatch failed: {e!s}",
+                    final=True,
+                )
+                raise
 
     @override
     async def cancel(

@@ -21,7 +21,7 @@ from a2a.server.agent_execution.context import RequestContext
 from a2a.server.events.event_queue import EventQueue
 from a2a.types import TaskState, TaskStatus, TaskStatusUpdateEvent
 from a2a.utils import new_agent_text_message
-from shared.openai_session_helpers import ensure_context_id
+from shared.traced_executor import a2a_session
 
 from game_news_agent.agent import GameNewsAgent
 
@@ -36,45 +36,45 @@ class GameNewsAgentExecutor(AgentExecutor):
 
     @override
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
-        context_id: str = ensure_context_id(context)
-        logger.info(f"GameNewsAgentExecutor.execute context_id={context_id}")
+        with a2a_session(context, type(self).__name__) as context_id:
+            logger.info(f"GameNewsAgentExecutor.execute context_id={context_id}")
 
-        try:
-            final_text = await self.agent.invoke(context, context_id, event_queue)
-        except Exception as e:
-            logger.exception(f"GameNewsAgent invocation failed context_id={context_id}")
+            try:
+                final_text = await self.agent.invoke(context, context_id, event_queue)
+            except Exception as e:
+                logger.exception(f"GameNewsAgent invocation failed context_id={context_id}")
+                await event_queue.enqueue_event(
+                    TaskStatusUpdateEvent(
+                        context_id=context_id,
+                        task_id=context.task_id or "",
+                        final=True,
+                        status=TaskStatus(
+                            state=TaskState.failed,
+                            message=new_agent_text_message(
+                                text=f"An unexpected error occurred: {e}",
+                                context_id=context_id,
+                                task_id=context.task_id,
+                            ),
+                        ),
+                    )
+                )
+                return
+
             await event_queue.enqueue_event(
                 TaskStatusUpdateEvent(
                     context_id=context_id,
                     task_id=context.task_id or "",
                     final=True,
                     status=TaskStatus(
-                        state=TaskState.failed,
+                        state=TaskState.completed,
                         message=new_agent_text_message(
-                            text=f"An unexpected error occurred: {e}",
+                            text=final_text or "Done.",
                             context_id=context_id,
                             task_id=context.task_id,
                         ),
                     ),
                 )
             )
-            return
-
-        await event_queue.enqueue_event(
-            TaskStatusUpdateEvent(
-                context_id=context_id,
-                task_id=context.task_id or "",
-                final=True,
-                status=TaskStatus(
-                    state=TaskState.completed,
-                    message=new_agent_text_message(
-                        text=final_text or "Done.",
-                        context_id=context_id,
-                        task_id=context.task_id,
-                    ),
-                ),
-            )
-        )
 
     @override
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
