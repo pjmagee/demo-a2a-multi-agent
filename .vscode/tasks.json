@@ -138,6 +138,19 @@
       }
     },
     {
+      "label": "starwars_agent: uv sync",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "sync",
+        "--group",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/starwars_agent"
+      }
+    },
+    {
       "label": "shared: uv sync",
       "type": "shell",
       "command": "uv",
@@ -202,7 +215,7 @@
         "env": {
           "HOST": "127.0.0.1",
           "PORT": "8100",
-          "WEBAPP_AGENT_ADDRESSES": "[\"http://127.0.0.1:8011\",\"http://127.0.0.1:8012\",\"http://127.0.0.1:8013\",\"http://127.0.0.1:8014\",\"http://127.0.0.1:8015\",\"http://127.0.0.1:8016\",\"http://127.0.0.1:8017\",\"http://127.0.0.1:8018\",\"http://127.0.0.1:8020\"]"
+          "WEBAPP_AGENT_ADDRESSES": "[\"http://127.0.0.1:8011\",\"http://127.0.0.1:8012\",\"http://127.0.0.1:8013\",\"http://127.0.0.1:8014\",\"http://127.0.0.1:8015\",\"http://127.0.0.1:8016\",\"http://127.0.0.1:8017\",\"http://127.0.0.1:8018\",\"http://127.0.0.1:8020\",\"http://127.0.0.1:8022\"]"
         }
       },
       "isBackground": true,
@@ -262,7 +275,8 @@
         "emergency_operator_agent: uv sync",
         "tester_agent: uv sync",
         "greetings_agent: uv sync",
-        "game_news_agent: uv sync"
+        "game_news_agent: uv sync",
+        "starwars_agent: uv sync"
       ]
     },
     {

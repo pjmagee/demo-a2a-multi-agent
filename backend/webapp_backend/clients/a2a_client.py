@@ -227,8 +227,10 @@ class A2AAgentClient:
         agent_name: str,
         message: str,
         context_id: str | None = None,
+        *,
+        parts: list[Part] | None = None,
     ) -> SendMessageResponse | None:
-        """Send a text message to the agent with the given display name."""
+        """Send a message to the agent with the given display name."""
         if not self._addresses:
             return None
 
@@ -251,6 +253,7 @@ class A2AAgentClient:
                 payload: SendMessageRequest = self._build_request(
                     message=message,
                     context_id=context_id,
+                    parts=parts,
                 )
                 a2a_client = A2AClient(httpx_client=client, agent_card=card)
 
@@ -288,7 +291,16 @@ class A2AAgentClient:
         return None
 
     @staticmethod
-    def _build_request(message: str, context_id: str | None) -> SendMessageRequest:
+    def _build_request(
+        message: str,
+        context_id: str | None,
+        *,
+        parts: list[Part] | None = None,
+    ) -> SendMessageRequest:
+        if parts is None:
+            parts = [
+                Part(root=TextPart(kind="text", text=message)),
+            ]
         return SendMessageRequest(
             id=uuid4().hex,
             jsonrpc="2.0",
@@ -298,14 +310,7 @@ class A2AAgentClient:
                     context_id=context_id,
                     role=Role.user,
                     message_id=uuid4().hex,
-                    parts=[
-                        Part(
-                            root=TextPart(
-                                kind="text",
-                                text=message,
-                            ),
-                        ),
-                    ],
+                    parts=parts,
                 ),
             ),
         )
@@ -530,6 +535,8 @@ class A2AAgentClient:
         agent_name: str,
         message: str,
         context_id: str | None = None,
+        *,
+        parts: list[Part] | None = None,
     ) -> AsyncGenerator[SendStreamingMessageResponse]:
         """Yield streaming responses from the specified agent."""
         if not self._addresses:
@@ -581,6 +588,7 @@ class A2AAgentClient:
                 payload: SendMessageRequest = self._build_request(
                     message=message,
                     context_id=context_id,
+                    parts=parts,
                 )
                 a2a_client = A2AClient(httpx_client=client, agent_card=card)
 

@@ -1,15 +1,18 @@
 "use client";
-import React from "react";
+import React, { useMemo } from "react";
 import {
   AssistantRuntimeProvider,
   useLocalRuntime,
+  SimpleImageAttachmentAdapter,
+  SimpleTextAttachmentAdapter,
+  CompositeAttachmentAdapter,
   type ChatModelRunOptions,
   type ChatModelRunResult,
 } from "@assistant-ui/react";
 
-// Runtime provider that can speak to either legacy /api/messages/stream (GET)
-// or the new /api/chat (POST) Data Stream style endpoint depending on env flag.
-// Set NEXT_PUBLIC_USE_CHAT_ENDPOINT=1 to use /api/chat.
+// Runtime provider using POST /api/chat with rich A2A content rendering.
+// Streams SSE frames: message-start, message-delta, file-part, status-update,
+// artifact-update, message-complete, error, done.
 
 interface A2ARuntimeProviderProps {
   children: React.ReactNode;
@@ -17,149 +20,199 @@ interface A2ARuntimeProviderProps {
   token: string;
 }
 
-interface GenericMessagePart { type?: string; kind?: string; text?: string; value?: string }
-interface AssistantUIMessage { id?: string; role?: string; content?: GenericMessagePart[] | string }
-interface ThreadMessageLike { role?: string; content?: unknown }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ContentPart = Record<string, any>;
 
 const boundary = "\n\n";
 
 function parseSSEChunk(
   chunk: string,
-): { event: string | null; data: unknown | null } {
+): { event: string | null; data: Record<string, unknown> | null } {
   const lines = chunk.split("\n");
   const eventLine = lines.find((l) => l.startsWith("event:")) || null;
   const dataLine = lines.find((l) => l.startsWith("data:")) || null;
   let evt: string | null = null;
-  let data: unknown | null = null;
+  let data: Record<string, unknown> | null = null;
   if (eventLine) evt = eventLine.slice(6).trim();
   if (dataLine) {
     const raw = dataLine.slice(5).trim();
     try {
-      data = JSON.parse(raw);
+      data = JSON.parse(raw) as Record<string, unknown>;
     } catch {
-      data = raw;
+      data = { text: raw };
     }
   }
   return { event: evt, data };
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  submitted: "📋 Submitted",
+  working: "⏳ Working",
+  "input-required": "✋ Input Required",
+  completed: "✅ Completed",
+  canceled: "🚫 Canceled",
+  failed: "❌ Failed",
+  rejected: "🚷 Rejected",
+  "auth-required": "🔐 Auth Required",
+  unknown: "❓ Unknown",
+};
+
 export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children, agentName, token }) => {
+  const attachmentAdapter = useMemo(
+    () =>
+      new CompositeAttachmentAdapter([
+        new SimpleImageAttachmentAdapter(),
+        new SimpleTextAttachmentAdapter(),
+      ]),
+    [],
+  );
+
   const runtime = useLocalRuntime({
-    async run({ messages, abortSignal }: ChatModelRunOptions): Promise<ChatModelRunResult> {
+    async *run({ messages, abortSignal }: ChatModelRunOptions): AsyncGenerator<ChatModelRunResult, void> {
       if (!agentName) {
-        const lastUser = [...messages].reverse().find((m) => (m as ThreadMessageLike).role === "user") as ThreadMessageLike | undefined;
-        const echoed = lastUser && typeof lastUser.content === "string" ? (lastUser.content as string) : "";
-        return {
+        yield {
           content: [
             {
               type: "text" as const,
-              text: `Please select an agent from the right sidebar before continuing.${echoed ? `\n\n(You said: ${echoed})` : ""}`,
+              text: "Please select an agent from the right sidebar before continuing.",
             },
           ],
-        } as ChatModelRunResult;
+        } as unknown as ChatModelRunResult;
+        return;
       }
 
       const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8100";
-      const useChat = process.env.NEXT_PUBLIC_USE_CHAT_ENDPOINT === "1";
-      let resp: Response;
-      if (useChat) {
-        resp = await fetch(`${base}/api/chat?token=${encodeURIComponent(token)}`, {
-          method: "POST",
-          headers: {
-            Accept: "text/event-stream",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ messages, agent_name: agentName }),
-          signal: abortSignal,
-        });
-      } else {
-        const lastUser = [...messages].reverse().find((m) => (m as ThreadMessageLike).role === "user") as ThreadMessageLike | undefined;
-        let userText = "";
-        if (lastUser) {
-          const content = lastUser.content;
-          if (typeof content === "string") userText = content;
-          else if (Array.isArray(content)) {
-            userText = content
-              .filter((p: GenericMessagePart) => p.type === "text" && typeof p.text === "string")
-              .map((p: GenericMessagePart) => p.text || "")
-              .join("");
-          }
-        }
-        const params = new URLSearchParams({ agent_name: agentName, message: userText });
-        params.set("token", token);
-        resp = await fetch(`${base}/api/messages/stream?${params.toString()}`, {
-          signal: abortSignal,
-          headers: { Accept: "text/event-stream" },
-        });
-      }
+      const resp = await fetch(`${base}/api/chat?token=${encodeURIComponent(token)}`, {
+        method: "POST",
+        headers: {
+          Accept: "text/event-stream",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ messages, agent_name: agentName }),
+        signal: abortSignal,
+      });
 
       if (!resp.ok) {
         const errorText = await resp.text().catch(() => "");
-        const info = errorText || `HTTP ${resp.status}`;
-        return {
+        yield {
           content: [
-            { type: "text" as const, text: `Request failed before streaming started: ${info}` },
+            { type: "text" as const, text: `Request failed: ${errorText || `HTTP ${resp.status}`}` },
           ],
-        } as ChatModelRunResult;
+        } as unknown as ChatModelRunResult;
+        return;
       }
       if (!resp.body) {
-        return {
-          content: [
-            { type: "text" as const, text: "Stream unavailable" },
-          ],
-        } as ChatModelRunResult;
+        yield {
+          content: [{ type: "text" as const, text: "Stream unavailable" }],
+        } as unknown as ChatModelRunResult;
+        return;
+      }
+
+      // Progressive content accumulation
+      let accumulatedText = "";
+      let lastStatus = "";
+      const fileParts: ContentPart[] = [];
+      const sourceParts: ContentPart[] = [];
+
+      function buildContent(): ContentPart[] {
+        const parts: ContentPart[] = [];
+        // Show status as text when no content has arrived yet
+        if (lastStatus && !accumulatedText && fileParts.length === 0) {
+          parts.push({ type: "text" as const, text: lastStatus });
+        }
+        if (accumulatedText) {
+          parts.push({ type: "text" as const, text: accumulatedText });
+        }
+        parts.push(...fileParts, ...sourceParts);
+        return parts.length > 0 ? parts : [{ type: "text" as const, text: "" }];
       }
 
       const reader = resp.body.getReader();
       let buffer = "";
-      let accumulated = "";
-      let finalText = "";
-      let completeReceived = false;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += new TextDecoder().decode(value);
         let idx: number;
+        let updated = false;
         while ((idx = buffer.indexOf(boundary)) >= 0) {
           const rawChunk = buffer.slice(0, idx).trim();
           buffer = buffer.slice(idx + boundary.length);
           if (!rawChunk) continue;
           const { event, data } = parseSSEChunk(rawChunk);
-          if (!event) continue;
-          if (event === "error") {
-            const err = (data as { error?: string } | null)?.error || "stream error";
-            accumulated += `\n[error: ${err}]`;
-          } else if (event === "stream" && !useChat) {
-            const d = data as { parts?: GenericMessagePart[]; artifact?: { parts?: GenericMessagePart[] }; status?: { message?: { parts?: GenericMessagePart[] } } } | null;
-            const parts: GenericMessagePart[] = (d?.parts || d?.artifact?.parts || d?.status?.message?.parts || []) as GenericMessagePart[];
-            accumulated += (Array.isArray(parts)
-              ? parts
-                  .filter((p: GenericMessagePart) => (p.kind === "text" || p.type === "text") && typeof (p.text ?? p.value) === "string")
-                  .map((p: GenericMessagePart) => (p.text || p.value || ""))
-                  .join("")
-              : "");
-          } else if (useChat) {
-            if (event === "message-delta") {
-              const deltaText = (data as { delta?: { text?: string } } | null)?.delta?.text;
-              if (deltaText) accumulated += deltaText;
-            } else if (event === "message-complete") {
-              completeReceived = true;
-              const msg = data as AssistantUIMessage;
-              const parts = Array.isArray(msg?.content) ? (msg.content as GenericMessagePart[]) : [];
-              finalText = parts
-                .filter((p) => p.type === "text" && typeof p.text === "string")
-                .map((p) => p.text || "")
-                .join("");
+          if (!event || !data) continue;
+
+          switch (event) {
+            case "message-delta": {
+              const deltaText = (data.delta as Record<string, unknown> | undefined)?.text;
+              if (typeof deltaText === "string") {
+                accumulatedText += deltaText;
+                lastStatus = "";
+                updated = true;
+              }
+              break;
             }
+            case "status-update": {
+              const state = data.state as string;
+              lastStatus = STATUS_LABELS[state] || `⏳ ${state}`;
+              updated = true;
+              break;
+            }
+            case "file-part": {
+              if (data.type === "file") {
+                fileParts.push({
+                  type: "file" as const,
+                  data: data.data as string,
+                  mimeType: (data.mimeType as string) || "application/octet-stream",
+                  filename: data.name as string | undefined,
+                });
+                updated = true;
+              } else if (data.type === "file_uri") {
+                sourceParts.push({
+                  type: "source" as const,
+                  sourceType: "url",
+                  id: (data.name as string) || (data.uri as string),
+                  url: data.uri as string,
+                  title: data.name as string | undefined,
+                });
+                updated = true;
+              }
+              break;
+            }
+            case "message-complete": {
+              // Use server's authoritative content if available
+              const content = data.content as ContentPart[] | undefined;
+              if (content && Array.isArray(content) && content.length > 0) {
+                yield { content } as unknown as ChatModelRunResult;
+                return;
+              }
+              break;
+            }
+            case "error": {
+              const err = (data.error as string) || "stream error";
+              accumulatedText += `\n[error: ${err}]`;
+              updated = true;
+              break;
+            }
+            default:
+              break;
           }
         }
+        if (updated) {
+          yield { content: buildContent() } as unknown as ChatModelRunResult;
+        }
       }
-      const textOut = completeReceived ? (finalText || accumulated) : (accumulated || finalText);
-      return {
-        content: [
-          { type: "text" as const, text: textOut || "[empty response]" },
-        ],
-      } as ChatModelRunResult;
+      // Final fallback if nothing was yielded via message-complete
+      const finalContent = buildContent();
+      if (finalContent.length === 1 && (finalContent[0] as { text?: string }).text === "") {
+        yield {
+          content: [{ type: "text" as const, text: "[empty response]" }],
+        } as unknown as ChatModelRunResult;
+      }
+    },
+  }, {
+    adapters: {
+      attachments: attachmentAdapter,
     },
   });
 

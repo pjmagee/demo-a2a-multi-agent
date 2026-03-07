@@ -33,7 +33,7 @@ async def register_with_registry(
     endpoint = f"{url}/register"
 
     try:
-        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT, verify=False) as client:
             response = await client.post(
                 endpoint,
                 json={
@@ -78,7 +78,7 @@ async def unregister_from_registry(
     endpoint = f"{url}/unregister/{encoded_address}"
 
     try:
-        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT, verify=False) as client:
             response = await client.delete(endpoint)
             response.raise_for_status()
             logger.info(
@@ -111,7 +111,7 @@ async def fetch_agents_from_registry(
     endpoint = f"{url}/agents"
 
     try:
-        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT, verify=False) as client:
             response = await client.get(endpoint)
             response.raise_for_status()
             data: dict[str, Any] = response.json()

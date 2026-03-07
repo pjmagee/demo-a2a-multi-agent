@@ -1,17 +1,43 @@
 """A2A Executor for Counter Agent with SSE streaming."""
 
 import logging
+from datetime import UTC, datetime
 from typing import override
 
 from a2a.server.agent_execution import AgentExecutor
 from a2a.server.agent_execution.context import RequestContext
 from a2a.server.events.event_queue import EventQueue
+from a2a.types import TaskState, TaskStatus, TaskStatusUpdateEvent
 from a2a.utils import new_agent_text_message
 from shared.traced_executor import a2a_session
 
 from counter_agent.agent import CounterAgent
 
 logger: logging.Logger = logging.getLogger(name=__name__)
+
+
+def _status_event(
+    task_id: str,
+    context_id: str,
+    text: str,
+    state: TaskState,
+    *,
+    final: bool,
+) -> TaskStatusUpdateEvent:
+    return TaskStatusUpdateEvent(
+        task_id=task_id,
+        context_id=context_id,
+        status=TaskStatus(
+            state=state,
+            message=new_agent_text_message(
+                text=text,
+                context_id=context_id,
+                task_id=task_id,
+            ),
+            timestamp=datetime.now(UTC).isoformat(),
+        ),
+        final=final,
+    )
 
 
 class CounterAgentExecutor(AgentExecutor):
@@ -34,17 +60,36 @@ class CounterAgentExecutor(AgentExecutor):
                 "CounterAgentExecutor executing for context_id=%s",
                 context_id,
             )
+            task_id = context.task_id or context_id
 
             try:
+                last_chunk: str | None = None
                 async for chunk in self.agent.stream(
                     context=context,
                     context_id=context_id,
                 ):
+                    if last_chunk is not None:
+                        await event_queue.enqueue_event(
+                            _status_event(
+                                task_id, context_id, last_chunk,
+                                TaskState.working, final=False,
+                            ),
+                        )
+                    last_chunk = chunk
+
+                # Emit the final chunk as completed
+                if last_chunk is not None:
                     await event_queue.enqueue_event(
-                        event=new_agent_text_message(
-                            context_id=context_id,
-                            text=chunk,
-                            task_id=context.task_id,
+                        _status_event(
+                            task_id, context_id, last_chunk,
+                            TaskState.completed, final=True,
+                        ),
+                    )
+                else:
+                    await event_queue.enqueue_event(
+                        _status_event(
+                            task_id, context_id, "",
+                            TaskState.completed, final=True,
                         ),
                     )
             except Exception:
@@ -52,11 +97,14 @@ class CounterAgentExecutor(AgentExecutor):
                     "Agent streaming failed context_id=%s",
                     context_id,
                 )
+                _error_msg = (
+                    "I apologize, but I encountered an error "
+                    "processing your request."
+                )
                 await event_queue.enqueue_event(
-                    event=new_agent_text_message(
-                        context_id=context_id,
-                        text="I apologize, but I encountered an error processing your request.",
-                        task_id=context.task_id,
+                    _status_event(
+                        task_id, context_id, _error_msg,
+                        TaskState.failed, final=True,
                     ),
                 )
 

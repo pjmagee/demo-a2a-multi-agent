@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Star Wars Agent",
+      "consoleName": "Star Wars Agent",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "starwars_agent.app",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal"
+    }
+  ]
+}

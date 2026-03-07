@@ -36,8 +36,17 @@ from typing import Annotated, TYPE_CHECKING, Any, cast
 # Third-party
 from a2a.types import (
     AgentCard,
+    Artifact,
+    FilePart,
+    FileWithBytes,
+    FileWithUri,
     JSONRPCErrorResponse,
+    Message as A2AMessage,
+    Part,
     SendStreamingMessageSuccessResponse,
+    Task,
+    TaskArtifactUpdateEvent,
+    TaskStatusUpdateEvent,
     TextPart,
 )
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -331,6 +340,92 @@ def _extract_user_text(messages: list[dict[str, object]]) -> str:
         return ""
     return ""
 
+
+def _parse_data_uri(data_uri: str) -> tuple[str, str]:
+    """Return (mime_type, base64_data) from a data URI string."""
+    # Format: data:<mime>;base64,<b64>
+    header, _, b64 = data_uri.partition(";base64,")
+    mime = header.removeprefix("data:")
+    return mime, b64
+
+
+def _content_item_to_part(p: dict[str, object]) -> Part | None:
+    """Convert a single assistant-ui content item to an A2A Part."""
+    ptype = p.get("type")
+    if ptype == "text" and isinstance(p.get("text"), str):
+        return Part(root=TextPart(kind="text", text=str(p["text"])))
+    if ptype == "image":
+        data_uri = p.get("image", "")
+        if isinstance(data_uri, str) and data_uri.startswith("data:"):
+            mime, b64 = _parse_data_uri(data_uri)
+            return Part(
+                root=FilePart(
+                    kind="file",
+                    file=FileWithBytes(
+                        bytes=b64,
+                        mime_type=mime or None,
+                        name=str(p["filename"]) if p.get("filename") else None,
+                    ),
+                ),
+            )
+    if ptype == "file":
+        b64 = p.get("data", "")
+        mime = p.get("mimeType", "")
+        if isinstance(b64, str) and b64:
+            if b64.startswith("data:"):
+                mime, b64 = _parse_data_uri(b64)
+            return Part(
+                root=FilePart(
+                    kind="file",
+                    file=FileWithBytes(
+                        bytes=b64,
+                        mime_type=str(mime) if mime else None,
+                        name=str(p["filename"]) if p.get("filename") else None,
+                    ),
+                ),
+            )
+    return None
+
+
+def _extract_user_parts(messages: list[dict[str, object]]) -> list[Part]:
+    """Extract text and file parts from the most recent user message.
+
+    Handles content and attachment content shapes produced by assistant-ui:
+      - ``{type: "text", text: "..."}``
+      - ``{type: "image", image: "data:image/...;base64,..."}``
+      - ``{type: "file", data: "<base64>", mimeType: "...", filename: "..."}``
+    """
+    for item in reversed(messages):
+        if item.get("role") != "user":
+            continue
+        content = item.get("content", "")
+        if isinstance(content, str):
+            return [Part(root=TextPart(kind="text", text=content))]
+        a2a_parts: list[Part] = []
+        if isinstance(content, list):
+            for raw in content:
+                if isinstance(raw, dict):
+                    part = _content_item_to_part(cast("dict[str, object]", raw))
+                    if part is not None:
+                        a2a_parts.append(part)
+        # Also process attachment content (e.g. inlined text from SimpleTextAttachmentAdapter)
+        attachments = item.get("attachments")
+        if isinstance(attachments, list):
+            for att in attachments:
+                if not isinstance(att, dict):
+                    continue
+                att_content = cast("dict[str, object]", att).get("content")
+                if isinstance(att_content, list):
+                    for raw_att in att_content:
+                        if isinstance(raw_att, dict):
+                            part = _content_item_to_part(
+                                cast("dict[str, object]", raw_att),
+                            )
+                            if part is not None:
+                                a2a_parts.append(part)
+        return a2a_parts
+    return []
+
 def _chat_accept_error_frames() -> list[str]:
     header_error = {"error": "Endpoint requires Accept: text/event-stream"}
     return [
@@ -368,8 +463,27 @@ def _format_message_delta(mid: str, chunk: str) -> str:
     )
 
 def _format_message_complete(
-    agent_name: str, mid: str, ctx: str | None, text: str,
+    agent_name: str,
+    mid: str,
+    ctx: str | None,
+    content_parts: list[dict[str, object]],
 ) -> str:
+    # Consolidate consecutive text parts into a single part so the frontend
+    # renders one markdown block instead of many separate lines.
+    merged: list[dict[str, object]] = []
+    text_buf: list[str] = []
+    for part in content_parts:
+        if part.get("type") == "text":
+            text_buf.append(str(part.get("text", "")))
+        else:
+            if text_buf:
+                merged.append({"type": "text", "text": "".join(text_buf)})
+                text_buf.clear()
+            merged.append(part)
+    if text_buf:
+        merged.append({"type": "text", "text": "".join(text_buf)})
+    if not merged:
+        merged = [{"type": "text", "text": ""}]
     return (
         "event:message-complete\n"
         "data:" + json.dumps(
@@ -377,7 +491,7 @@ def _format_message_complete(
                 "id": mid,
                 "role": "assistant",
                 "agent_name": agent_name,
-                "content": [{"type": "text", "text": text}],
+                "content": merged,
                 "context_id": ctx,
             },
             ensure_ascii=False,
@@ -419,61 +533,93 @@ def _validate_agent_exists(agent_name: str, agents: list[AgentCard]) -> bool:
 class _StreamState:
     started: bool
     message_id: str | None
-    accumulated: list[str]
+    accumulated_text: list[str]
+    content_parts: list[dict[str, object]]
     context_id: str | None
 
 
-def _handle_success_parts(
-    *,
-    result: SendStreamingMessageSuccessResponse,  # expected type
+def _format_status_update(event: TaskStatusUpdateEvent) -> str:
+    payload: dict[str, object] = {
+        "task_id": event.task_id,
+        "state": event.status.state.value,
+        "final": event.final,
+    }
+    if event.status.timestamp:
+        payload["timestamp"] = event.status.timestamp
+    return (
+        "event:status-update\n"
+        "data:" + json.dumps(payload, ensure_ascii=False) + "\n\n"
+    )
+
+
+def _format_file_part(mid: str, file_part: FilePart) -> str:
+    file_obj = file_part.file
+    payload: dict[str, object] = {"id": mid}
+    if isinstance(file_obj, FileWithBytes):
+        payload.update({
+            "type": "file",
+            "name": file_obj.name,
+            "mimeType": file_obj.mime_type or "application/octet-stream",
+            "data": file_obj.bytes,
+        })
+    elif isinstance(file_obj, FileWithUri):
+        payload.update({
+            "type": "file_uri",
+            "name": file_obj.name,
+            "mimeType": file_obj.mime_type,
+            "uri": file_obj.uri,
+        })
+    return (
+        "event:file-part\n"
+        "data:" + json.dumps(payload, ensure_ascii=False) + "\n\n"
+    )
+
+
+def _format_artifact_update(mid: str, artifact: Artifact) -> str:
+    payload: dict[str, object] = {
+        "id": mid,
+        "artifact_id": artifact.artifact_id,
+        "name": artifact.name,
+        "description": artifact.description,
+    }
+    return (
+        "event:artifact-update\n"
+        "data:" + json.dumps(payload, ensure_ascii=False) + "\n\n"
+    )
+
+
+def _process_parts(
+    parts: list[Part],
     state: _StreamState,
-    agent_name: str,
-) -> tuple[_StreamState, list[str]]:
+) -> list[str]:
+    """Process A2A Part list into SSE frames, accumulating state."""
     frames: list[str] = []
-    if state.message_id is None:
-        state.message_id = getattr(result, "message_id", "msg")
-    if not state.started and state.message_id is not None:
-        state.started = True
-        frames.append(
-            _format_message_start(
-                agent_name,
-                state.message_id,
-                state.context_id,
-            ),
-        )
-    for part in getattr(result, "parts", []):
+    mid = state.message_id or "msg"
+    for part in parts:
         part_root = getattr(part, "root", None)
         if isinstance(part_root, TextPart) and part_root.text:
-            state.accumulated.append(part_root.text)
-            if state.message_id is not None:
-                frames.append(_format_message_delta(state.message_id, part_root.text))
-    return state, frames
-
-
-def _handle_fallback_text(
-    *,
-    root: object,
-    state: _StreamState,
-    agent_name: str,
-) -> tuple[_StreamState, list[str]]:
-    frames: list[str] = []
-    shallow = _shallow_dump(root)
-    possible_text = shallow.get("text") or shallow.get("message")
-    if isinstance(possible_text, str) and possible_text:
-        if not state.started:
-            state.message_id = state.message_id or "msg"
-            state.started = True
-            frames.append(
-                _format_message_start(
-                    agent_name,
-                    state.message_id,
-                    state.context_id,
-                ),
-            )
-        state.accumulated.append(possible_text)
-        if state.message_id is not None:
-            frames.append(_format_message_delta(state.message_id, possible_text))
-    return state, frames
+            state.accumulated_text.append(part_root.text)
+            state.content_parts.append({"type": "text", "text": part_root.text})
+            frames.append(_format_message_delta(mid, part_root.text))
+        elif isinstance(part_root, FilePart):
+            file_obj = part_root.file
+            if isinstance(file_obj, FileWithBytes):
+                state.content_parts.append({
+                    "type": "file",
+                    "data": file_obj.bytes,
+                    "mimeType": file_obj.mime_type or "application/octet-stream",
+                    "filename": file_obj.name,
+                })
+            elif isinstance(file_obj, FileWithUri):
+                state.content_parts.append({
+                    "type": "source",
+                    "sourceType": "url",
+                    "id": file_obj.name or file_obj.uri,
+                    "url": file_obj.uri,
+                    "title": file_obj.name,
+                })
+            frames.append(_format_file_part(mid, part_root))
+    return frames
 
 
 async def _stream_agent_reply(
@@ -483,21 +629,39 @@ async def _stream_agent_reply(
     user_text: str,
     context_id: str | None,
     request: Request,
+    parts: list[Part] | None = None,
 ) -> AsyncGenerator[str]:
-    """Core streaming logic producing incremental frames."""
+    """Core streaming logic producing incremental frames.
+
+    Dispatches on A2A result types:
+    - Message: text/file parts forwarded as message-delta / file-part
+    - TaskStatusUpdateEvent: emitted as status-update, message parts forwarded
+    - TaskArtifactUpdateEvent: artifact metadata + parts forwarded
+    - Task: logged only
+    """
     state = _StreamState(
         started=False,
         message_id=None,
-        accumulated=[],
+        accumulated_text=[],
+        content_parts=[],
         context_id=context_id,
     )
     final_context_id: str | None = context_id
     log = logging.getLogger("webapp_backend.api.sse")
+
+    def _ensure_started() -> list[str]:
+        if state.started:
+            return []
+        state.message_id = state.message_id or "msg"
+        state.started = True
+        return [_format_message_start(agent_name, state.message_id, state.context_id)]
+
     try:
         async for envelope in client.send_message_streaming(
             agent_name=agent_name,
             message=user_text,
             context_id=context_id,
+            parts=parts,
         ):
             if await request.is_disconnected():
                 log.info(
@@ -516,26 +680,42 @@ async def _stream_agent_reply(
                 )
                 yield _format_error(err_msg)
                 break
-            if isinstance(root, SendStreamingMessageSuccessResponse):
-                result = root.result
-                final_context_id = getattr(result, "context_id", final_context_id)
-                state.context_id = final_context_id
-                state, frames = _handle_success_parts(
-                    result=root,  # root is SendStreamingMessageSuccessResponse
-                    state=state,
-                    agent_name=agent_name,
-                )
-                for f in frames:
-                    yield f
+            if not isinstance(root, SendStreamingMessageSuccessResponse):
                 continue
+
+            result = root.result
+            final_context_id = getattr(result, "context_id", final_context_id)
             state.context_id = final_context_id
-            state, frames = _handle_fallback_text(
-                root=root,
-                state=state,
-                agent_name=agent_name,
-            )
-            for f in frames:
-                yield f
+
+            if isinstance(result, A2AMessage):
+                state.message_id = state.message_id or result.message_id
+                for f in _ensure_started():
+                    yield f
+                for f in _process_parts(result.parts, state):
+                    yield f
+
+            elif isinstance(result, TaskStatusUpdateEvent):
+                yield _format_status_update(result)
+                if result.status.message:
+                    state.message_id = (
+                        state.message_id or result.status.message.message_id
+                    )
+                    for f in _ensure_started():
+                        yield f
+                    for f in _process_parts(result.status.message.parts, state):
+                        yield f
+
+            elif isinstance(result, TaskArtifactUpdateEvent):
+                for f in _ensure_started():
+                    yield f
+                mid = state.message_id or "msg"
+                yield _format_artifact_update(mid, result.artifact)
+                for f in _process_parts(result.artifact.parts, state):
+                    yield f
+
+            elif isinstance(result, Task):
+                log.debug("Task object received task_id=%s", result.id)
+
     except asyncio.CancelledError:
         log.info(
             "Streaming coroutine cancelled (likely client abort) agent=%s context=%s",
@@ -548,7 +728,7 @@ async def _stream_agent_reply(
             agent_name,
             state.message_id,
             final_context_id,
-            "".join(state.accumulated),
+            state.content_parts,
         )
     yield _format_done(agent_name, final_context_id)
 
@@ -578,6 +758,7 @@ async def data_stream_chat(
             media_type="text/event-stream",
         )
     user_text = _extract_user_text(payload.messages)
+    user_parts = _extract_user_parts(payload.messages)
     return StreamingResponse(
         content=_stream_agent_reply(
             client=client,
@@ -585,6 +766,7 @@ async def data_stream_chat(
             user_text=user_text,
             context_id=payload.context_id,
             request=request,
+            parts=user_parts or None,
         ),
         media_type="text/event-stream",
         headers={

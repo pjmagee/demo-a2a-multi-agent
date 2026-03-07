@@ -37,6 +37,10 @@
 			"path": "game_news_agent"
 		},
 		{
+			"name": "starwars_agent",
+			"path": "starwars_agent"
+		},
+		{
 			"name": "counter_agent",
 			"path": "counter_agent"
 		},

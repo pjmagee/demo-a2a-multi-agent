@@ -54,6 +54,9 @@ class _SessionIdBaggageSpanProcessor:
     def on_end(self, span) -> None:  # type: ignore[override]
         pass
 
+    def _on_ending(self, span) -> None:
+        """Required by the OTel SDK internally (called before ``on_end``)."""
+
     def shutdown(self) -> None:
         pass
 

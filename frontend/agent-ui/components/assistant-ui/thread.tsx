@@ -20,6 +20,10 @@ import {
   MessagePrimitive,
   ThreadPrimitive,
 } from "@assistant-ui/react";
+import type {
+  FileMessagePartProps,
+  SourceMessagePartProps,
+} from "@assistant-ui/react";
 
 import type { FC } from "react";
 import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
@@ -242,6 +246,50 @@ const MessageError: FC = () => {
   );
 };
 
+const FilePartDisplay: FC<FileMessagePartProps> = ({ data, mimeType }) => {
+  const handleDownload = () => {
+    const byteChars = atob(data);
+    const bytes = new Uint8Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) {
+      bytes[i] = byteChars.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <div className="my-2 flex items-center gap-2 rounded-md border bg-muted/50 p-3">
+      <span className="text-sm font-medium">📎 File</span>
+      <span className="text-xs text-muted-foreground">({mimeType})</span>
+      <button
+        onClick={handleDownload}
+        className="ml-auto rounded-md border bg-background px-3 py-1 text-sm hover:bg-muted"
+      >
+        Download
+      </button>
+    </div>
+  );
+};
+
+const SourcePartDisplay: FC<SourceMessagePartProps> = ({ url, title }) => {
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="my-1 inline-flex items-center gap-1 rounded-md border bg-muted/50 px-2 py-1 text-sm text-blue-600 hover:underline dark:text-blue-400"
+    >
+      🔗 {title || url}
+    </a>
+  );
+};
+
 const AssistantMessage: FC = () => {
   return (
     <MessagePrimitive.Root asChild>
@@ -253,6 +301,8 @@ const AssistantMessage: FC = () => {
           <MessagePrimitive.Parts
             components={{
               Text: MarkdownText,
+              File: FilePartDisplay,
+              Source: SourcePartDisplay,
               tools: { Fallback: ToolFallback },
             }}
           />

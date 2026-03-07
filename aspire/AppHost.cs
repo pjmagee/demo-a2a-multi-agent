@@ -38,6 +38,7 @@ var mongo = builder
     .WithLifetime(ContainerLifetime.Persistent);
 
 var mongoDatabase = mongo.AddDatabase("game-news-agent-db");
+var starwarsDatabase = mongo.AddDatabase("starwars-db");
 
 // A2A Registry - can run in Docker or natively
 IResourceBuilder<IResourceWithEndpoints> registry;
@@ -223,6 +224,44 @@ var counter = AddPythonAgent(
     phoenix,
     useDocker
 );
+
+// Star Wars Agent - with MongoDB vector store for Fandom articles
+IResourceBuilder<IResourceWithEndpoints> starwars;
+if (useDocker)
+{
+    starwars = builder
+        .AddDockerfile("starwars-agent", "..", "starwars_agent/Dockerfile")
+        .WithHttpEndpoint(targetPort: 8022, name: "http")
+        .WithEnvironment("HOST", "0.0.0.0")
+        .WithEnvironment("BASE_URL", "http://starwars-agent:8022")
+        .WithEnvironment("INTERNAL_URL", "http://starwars-agent:8022")
+        .WithEnvironment("A2A_REGISTRY_URL", registry.GetEndpoint("http"))
+        .WithEnvironment("OPENAI_API_KEY", openaiApiKey)
+        .WithEnvironment("PHOENIX_COLLECTOR_ENDPOINT", phoenix.GetEndpoint("ui"))
+        .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent")
+        .WithReference(starwarsDatabase)
+        .WaitFor(registry)
+        .WaitFor(mongo)
+        .WaitFor(phoenix);
+}
+else
+{
+    var starwarsApp = builder
+        .AddUvicornApp("starwars-agent", "../starwars_agent", "starwars_agent.app:app")
+        .WithUv()
+        .WithEnvironment("HOST", "0.0.0.0")
+        .WithEnvironment("OPENAI_API_KEY", openaiApiKey)
+        .WithEnvironment("PHOENIX_COLLECTOR_ENDPOINT", phoenix.GetEndpoint("ui"))
+        .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent");
+
+    starwars = starwarsApp
+        .WithEnvironment("BASE_URL", starwarsApp.GetEndpoint("http"))
+        .WithEnvironment("A2A_REGISTRY_URL", registry.GetEndpoint("http"))
+        .WithReference(starwarsDatabase)
+        .WaitFor(registry)
+        .WaitFor(mongo)
+        .WaitFor(phoenix);
+}
 
 // Tester Agent REPL - Interactive console for testing agents
 // Note: This runs in its own terminal - stdin/stdout not accessible via Aspire dashboard
