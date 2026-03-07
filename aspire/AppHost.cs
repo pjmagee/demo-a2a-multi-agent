@@ -14,6 +14,12 @@ var openaiApiKey = builder.AddParameter("openai-api-key", secret: true);
 // RAWG API Key parameter - used by game-news-agent for game data
 var rawgApiKey = builder.AddParameter("rawg-api-key", secret: true);
 
+// WeatherAPI.com API Key - used by weather-agent for real weather data
+var weatherApiKey = builder.AddParameter("weatherapi-key", secret: true);
+
+// Set WEATHERAPI_MOCK=true to skip real API calls and return synthetic data
+var weatherApiMock = builder.AddParameter("weatherapi-mock", secret: false);
+
 // Phoenix - Observability platform for LLM tracing and monitoring
 var phoenix = builder
     .AddDockerfile("phoenix", "../phoenix")
@@ -61,7 +67,8 @@ IResourceBuilder<IResourceWithEndpoints> AddPythonAgent(
     IResourceBuilder<ParameterResource> openaiKey,
     IResourceBuilder<IResourceWithEndpoints> registryEndpoint,
     IResourceBuilder<IResourceWithEndpoints> phoenixEndpoint,
-    bool useDockerMode
+    bool useDockerMode,
+    Dictionary<string, IResourceBuilder<ParameterResource>>? extraEnv = null
 )
 {
     if (useDockerMode)
@@ -77,6 +84,10 @@ IResourceBuilder<IResourceWithEndpoints> AddPythonAgent(
             .WithEnvironment("OPENAI_API_KEY", openaiKey)
             .WithEnvironment("PHOENIX_COLLECTOR_ENDPOINT", phoenixEndpoint.GetEndpoint("ui"))
             .WithEnvironment("PHOENIX_PROJECT_NAME", "demo-a2a-multi-agent");
+
+        if (extraEnv != null)
+            foreach (var (k, v) in extraEnv)
+                dockerAgent.WithEnvironment(k, v);
 
         dockerAgent.WaitFor(registryEndpoint);
         dockerAgent.WaitFor(phoenixEndpoint);
@@ -97,6 +108,10 @@ IResourceBuilder<IResourceWithEndpoints> AddPythonAgent(
         pythonAgent
             .WithEnvironment("BASE_URL", pythonAgent.GetEndpoint("http"))
             .WithEnvironment("A2A_REGISTRY_URL", registryEndpoint.GetEndpoint("http"));
+
+        if (extraEnv != null)
+            foreach (var (k, v) in extraEnv)
+                pythonAgent.WithEnvironment(k, v);
 
         pythonAgent.WaitFor(registryEndpoint);
         pythonAgent.WaitFor(phoenixEndpoint);
@@ -157,7 +172,12 @@ var weather = AddPythonAgent(
     openaiApiKey,
     registry,
     phoenix,
-    useDocker
+    useDocker,
+    extraEnv: new Dictionary<string, IResourceBuilder<ParameterResource>>
+    {
+        ["WEATHERAPI_KEY"] = weatherApiKey,
+        ["WEATHERAPI_MOCK"] = weatherApiMock,
+    }
 );
 
 var operator_agent = AddPythonAgent(

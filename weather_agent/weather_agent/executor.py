@@ -5,9 +5,9 @@ from typing import override
 
 from a2a.server.agent_execution import AgentExecutor
 from a2a.server.agent_execution.context import RequestContext
-from shared.traced_executor import a2a_session
 from a2a.server.events.event_queue import EventQueue
 from a2a.utils import new_agent_text_message
+from shared.traced_executor import a2a_session
 
 from weather_agent.agent import WeatherAgent
 

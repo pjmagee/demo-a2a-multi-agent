@@ -1,0 +1,51 @@
+{
+  "applicationName": "application",
+  "apiDependencies": {
+    "ApiClient": {
+      "apiDescriptionUrl": "d:\\Projects\\pjmagee\\demo-a2a-multi-agent\\weather_agent\\weatherapi.yaml",
+      "apiDeploymentBaseUrl": "https://api.weatherapi.com/v1/",
+      "requests": [
+        {
+          "method": "GET",
+          "uriTemplate": "current.json"
+        },
+        {
+          "method": "GET",
+          "uriTemplate": "forecast.json"
+        },
+        {
+          "method": "GET",
+          "uriTemplate": "future.json"
+        },
+        {
+          "method": "GET",
+          "uriTemplate": "history.json"
+        },
+        {
+          "method": "GET",
+          "uriTemplate": "marine.json"
+        },
+        {
+          "method": "GET",
+          "uriTemplate": "search.json"
+        },
+        {
+          "method": "GET",
+          "uriTemplate": "ip.json"
+        },
+        {
+          "method": "GET",
+          "uriTemplate": "timezone.json"
+        },
+        {
+          "method": "GET",
+          "uriTemplate": "astronomy.json"
+        }
+      ],
+      "extensions": {
+        "x-ms-kiota-hash": "2F26D9DDAAFDA8D6D56CCF47374D0FB4F38B982D796FB68EE9CD3617D4FFF395",
+        "x-ms-kiota-version": "1.30.0"
+      }
+    }
+  }
+}

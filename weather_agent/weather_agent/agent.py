@@ -18,7 +18,7 @@ from shared.openai_session_helpers import get_or_create_session
 from shared.peer_tools import peer_message_context
 
 from weather_agent.guard_rails import weather_only_guardrail
-from weather_agent.tools import get_air_quality_report, get_weather_report
+from weather_agent.tools import get_air_quality_report, get_forecast, get_weather_report
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 
@@ -33,6 +33,10 @@ class WeatherAgent:
             name="Weather Agent",
             instructions="""
             Provide clear, actionable weather and air quality updates by using the provided tools.
+            Always call tools to retrieve real data rather than guessing.
+            For forecasts, use the get_forecast tool.
+            Use get_air_quality_report when the user asks about air quality or AQI.
+            Use get_weather_report for current conditions.
             """,
             handoffs=[],
             input_guardrails=[weather_only_guardrail],
@@ -42,12 +46,10 @@ class WeatherAgent:
         )
 
     def _build_tools(self) -> list[Tool]:
-
-        # peer_tools: list[Tool] = default_peer_tools()  # noqa: ERA001
-
         return [
             get_weather_report,
             get_air_quality_report,
+            get_forecast,
         ]
 
     async def invoke(self, context: RequestContext, context_id: str) -> str:

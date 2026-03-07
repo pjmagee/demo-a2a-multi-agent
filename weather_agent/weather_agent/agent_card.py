@@ -15,7 +15,7 @@ def build_agent_card(base_url: str) -> AgentCard:
             output_modes=["text"],
             examples=[
                 "What's the weather in Seattle?",
-                "Give me the forecast for tomorrow in Miami",
+                "Current conditions in Tokyo",
             ],
             security=None,
         ),
@@ -28,7 +28,20 @@ def build_agent_card(base_url: str) -> AgentCard:
             output_modes=["text"],
             examples=[
                 "Air quality in Denver",
-                "AQI for downtown",
+                "AQI for downtown Los Angeles",
+            ],
+            security=None,
+        ),
+        AgentSkill(
+            id="get_forecast",
+            name="Get Weather Forecast",
+            description="Provide a multi-day weather forecast (up to 14 days) for a location.",
+            tags=["weather", "forecast"],
+            input_modes=["text"],
+            output_modes=["text"],
+            examples=[
+                "Give me the 5-day forecast for London",
+                "What's the weather like in Paris next week?",
             ],
             security=None,
         ),

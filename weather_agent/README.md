@@ -1,6 +1,6 @@
 # Weather Agent
 
-Provides weather and air quality skills.
+Provides weather.
 
 ## Run
 ```

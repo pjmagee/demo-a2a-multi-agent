@@ -1,0 +1,36 @@
+{
+  "version": "1.0.0",
+  "clients": {
+    "ApiClient": {
+      "language": "Python",
+      "typeAccessModifier": "Public",
+      "structuredMimeTypes": [
+        "application/json",
+        "text/plain;q=0.9",
+        "application/x-www-form-urlencoded;q=0.2",
+        "multipart/form-data;q=0.1"
+      ],
+      "clientNamespaceName": "WeatherApi",
+      "usesBackingStore": false,
+      "includeAdditionalData": true,
+      "excludeBackwardCompatible": false,
+      "disabledValidationRules": [],
+      "descriptionLocation": "d:\\Projects\\pjmagee\\demo-a2a-multi-agent\\weather_agent\\weatherapi.yaml",
+      "includePatterns": [
+        "/",
+        "/astronomy.json",
+        "/current.json",
+        "/forecast.json",
+        "/future.json",
+        "/history.json",
+        "/ip.json",
+        "/marine.json",
+        "/search.json",
+        "/timezone.json"
+      ],
+      "excludePatterns": [],
+      "outputPath": "./../weather_agent"
+    }
+  },
+  "plugins": {}
+}

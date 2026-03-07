@@ -11,10 +11,19 @@ dependencies = [
   "uvicorn",
   "httpx",
   "shared",
+  "microsoft-kiota-abstractions>=1.9.9",
+  "microsoft-kiota-http>=1.9.9",
+  "microsoft-kiota-serialization-json>=1.9.9",
+  "microsoft-kiota-serialization-text>=1.9.9",
+  "microsoft-kiota-serialization-form>=1.9.9",
+  "microsoft-kiota-serialization-multipart>=1.9.9",
 ]
 
 [tool.uv]
 package = true
+
+[tool.setuptools.packages.find]
+include = ["weather_agent*", "weather_client*"]
 
 [tool.uv.sources]
 shared = { path = "../shared", editable = true }
@@ -26,6 +35,7 @@ dev = [
 
 [tool.ruff]
 target-version = "py313"
+exclude = ["weather_client"]
 
 [tool.ruff.lint]
 select = ["ALL"]

@@ -177,3 +177,4 @@ agent_name/
 - [Phoenix Observability](https://docs.arize.com/phoenix)
 - [OpenAI Agent SDK](https://github.com/openai/openai-agents-python)
 - [Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/)
+- [Kiota](https://learn.microsoft.com/en-us/openapi/kiota/overview)
