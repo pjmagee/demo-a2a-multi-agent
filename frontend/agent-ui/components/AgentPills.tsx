@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
+import { useAgentActivity } from "@/lib/agent-activity";
 
 interface SkillDefinition { name: string; description?: string; [k: string]: unknown }
 interface AgentCard { name: string; description?: string; tags?: string[]; skills?: Record<string, SkillDefinition> }
@@ -18,6 +19,8 @@ export const AgentPills: React.FC<AgentPillsProps> = ({ token, onChoose, chosenA
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<AgentCard | null>(null);
+  const { isStreaming, toolCalls } = useAgentActivity();
+  const pendingCount = toolCalls.filter((tc) => tc.status === "pending").length;
 
   // Auto select first agent after load if none chosen
   useEffect(() => {
@@ -74,7 +77,18 @@ export const AgentPills: React.FC<AgentPillsProps> = ({ token, onChoose, chosenA
                 >
                   <div className="flex items-center justify-between">
                     <span className={`text-xs font-medium truncate ${active ? "text-blue-700" : "text-gray-800"}`}>{a.name}</span>
-                    {active && <span className="text-[10px] text-blue-600">Selected</span>}
+                    <span className="flex items-center gap-1">
+                      {active && isStreaming && (
+                        <span className="relative flex h-2 w-2" title={pendingCount > 0 ? `${pendingCount} tool call(s) in progress` : "Working…"}>
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
+                        </span>
+                      )}
+                      {active && isStreaming && pendingCount > 0 && (
+                        <span className="text-[10px] text-blue-600 font-medium">{pendingCount}</span>
+                      )}
+                      {active && !isStreaming && <span className="text-[10px] text-blue-600">Selected</span>}
+                    </span>
                   </div>
                   {a.description && (
                     <p className="text-[11px] text-gray-600 line-clamp-2">{a.description}</p>

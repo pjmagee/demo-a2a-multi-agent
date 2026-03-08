@@ -1,25 +1,24 @@
 # Multi-Agent Sandbox
 
-A learning environment for exploring multi-agent systems using the **Agent-to-Agent (A2A) Protocol** with **SDK-agnostic** agent implementations.
+An environment for learning multi-agent systems using **Agent-to-Agent (A2A) Protocol** with different agent **SDKs**.
 
 ## Overview
 
 **What This Is:**
 
 - Multi-agent orchestration sandbox using A2A protocol
-- SDK-agnostic design (OpenAI Agents, Microsoft Agent Framework, LangGraph, etc.)
-- Local observability with .NET Aspire (metrics, logs, traces, health monitoring)
-- Dynamic agent discovery via A2A Registry
-- Phoenix OSS integration for LLM tracing and prompt evaluation
+- Local observability, metrics, tracing with Aspire & Phoenix
+- Agent discovery via an A2A Registry
 
 **Tech Stack:**
 
 - **Protocol**: A2A (Agent-to-Agent) for inter-agent communication
-- **Agent SDKs**: OpenAI Agent SDK, Microsoft Agent Framework, LangGraph
+- **Agent SDKs**: OpenAI Agent SDK, Microsoft Agent Framework, Strand SDK
 - **Orchestration**: Aspire for service management and telemetry
 - **Observability**: Phoenix (LLM tracing), OpenTelemetry (distributed tracing)
-- **Languages**: Python 3.13, TypeScript/React
-- **Tools**: uv (Python package management), MongoDB (task persistence)
+- **Languages**: Python 3.13, TypeScript/React, C#
+- **Tools**: uv (Python package management), VSCode, MCPs
+- **DB**: MongoDB (task persistence, storage, vector search)
 
 ## Quick Start
 
@@ -42,9 +41,9 @@ This starts:
 
 - **Aspire Dashboard**: <https://localhost:17138> (metrics, logs, traces)
 - **A2A Registry**: Dynamic agent discovery service
-- **10 Agents**: Fire, Police, MI5, Ambulance, Weather, Emergency Operator, Tester, Greetings, Game News, Counter
-- **Backend API**: Web API for agent interaction
-- **Frontend**: React web UI
+- **Agents**: Various agents
+- **Backend**: BFF for frontend
+- **Frontend**: React web UI exposing Agents
 - **Phoenix**: LLM observability at <http://localhost:6006>
 - **MongoDB**: Task state persistence
 
@@ -54,12 +53,12 @@ This starts:
 
 Agents automatically register on startup and discover peers at runtime - **no hardcoded endpoints needed**. The registry service provides dynamic agent discovery, allowing agents to find each other and their capabilities.
 
-### Multi-SDK Support
+### Multi-SDKs / Frameworks
 
-The sandbox demonstrates SDK-agnostic patterns with multiple agent frameworks:
+The sandbox demonstrates agnostic patterns with multiple agent frameworks:
 
 - **OpenAI Agent SDK**: Fire, Police, Ambulance, Weather, Emergency Operator, Tester, Greetings agents
-- **Microsoft Agent Framework**: Counter agent  
+- **Microsoft Agent Framework**: Counter agent, with A2A File / Text Parts demonstration
 - **LangGraph**: Game News agent
 
 Each agent implements the A2A protocol regardless of the underlying SDK, enabling seamless inter-agent communication.
@@ -98,7 +97,8 @@ Each agent implements the A2A protocol regardless of the underlying SDK, enablin
 2. **Handoffs & Sub-Agents** - Agent delegation patterns
 3. **Authentication** - Secure agent-to-agent communication
 4. **A2A Extensions** - Custom protocol extensions
-5. **Advanced Phoenix** - Evaluators, datasets, experiments
+5. **Authentication & Authorization** - Authentication, Authorization
+6. **Advanced Phoenix** - Evaluators, datasets, experiments, prompt management
 
 ## MCP-to-A2A Bridge
 

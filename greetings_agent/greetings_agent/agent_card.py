@@ -8,7 +8,7 @@ def build_agent_card(base_url: str) -> AgentCard:
     agent_capabilities = AgentCapabilities(
         push_notifications=False,
         state_transition_history=False,
-        streaming=False,
+        streaming=True,
     )
     agent_skills: list[AgentSkill] = [
         AgentSkill(

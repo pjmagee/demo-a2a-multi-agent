@@ -14,13 +14,16 @@ import logging
 import os
 from datetime import date, datetime
 from typing import Any, ClassVar, Literal, TypedDict
+from uuid import uuid4
 
 from a2a.server.agent_execution.context import RequestContext
 from a2a.server.events.event_queue import EventQueue
 from a2a.types import (
     Artifact,
     DataPart,
+    Message,
     Part,
+    Role,
     TaskArtifactUpdateEvent,
     TaskState,
     TaskStatus,
@@ -32,11 +35,10 @@ from agents import Agent, Runner, Session, function_tool
 from agents.items import (
     HandoffCallItem,
     HandoffOutputItem,
-    MessageOutputItem,
-    ReasoningItem,
     ToolCallItem,
     ToolCallOutputItem,
 )
+from agents.stream_events import RunItemStreamEvent
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
@@ -1138,14 +1140,17 @@ class GameNewsAgent:
         context: RequestContext,
         context_id: str,
         event_queue: EventQueue,
+        task_id: str | None = None,
     ) -> str:
-        """Run the parent orchestrator and return the final output text.
+        """Run the parent orchestrator in streaming mode and return the final output text.
 
         Artifacts (report / review analysis) are streamed directly to
         *event_queue* from within the subagent tools before this method returns.
+        Tool-call and tool-result events are emitted as they happen.
         """
         logger.info(f"GameNewsAgent.invoke context_id={context_id}")
         runner_input = self._build_runner_input(context)
+        tid = task_id or ""
         logger.info(
             f"Runner input type={type(runner_input).__name__}, "
             f"preview={str(runner_input)[:200]}"
@@ -1156,56 +1161,85 @@ class GameNewsAgent:
                 sessions=GameNewsAgent._sessions,
                 context_id=context_id,
             )
-            result = await Runner.run(starting_agent=agent, input=runner_input, session=session)
+            result = Runner.run_streamed(
+                starting_agent=agent, input=runner_input, session=session,
+            )
 
-        # Log every item produced during this run for observability
-        for item in result.new_items:
-            if isinstance(item, MessageOutputItem):
-                text_preview = ""
-                for block in getattr(item.raw_item, "content", []) or []:
-                    if getattr(block, "type", None) == "output_text":
-                        text_preview += getattr(block, "text", "")
-                logger.info(
-                    "[%s] agent=%s message=%s",
-                    type(item).__name__,
-                    getattr(item, "agent", {}) and item.agent.name,
-                    text_preview[:500],
-                )
-            elif isinstance(item, ToolCallItem):
-                raw = item.raw_item
-                logger.info(
-                    "[%s] agent=%s tool=%s args=%s",
-                    type(item).__name__,
-                    item.agent.name,
-                    getattr(raw, "name", "?"),
-                    str(getattr(raw, "arguments", ""))[:500],
-                )
-            elif isinstance(item, ToolCallOutputItem):
-                logger.info(
-                    "[%s] tool_output=%s",
-                    type(item).__name__,
-                    str(item.output)[:500],
-                )
-            elif isinstance(item, HandoffCallItem):
-                logger.info(
-                    "[%s] from=%s handoff=%s",
-                    type(item).__name__,
-                    item.agent.name,
-                    getattr(item.raw_item, "name", "?"),
-                )
-            elif isinstance(item, HandoffOutputItem):
-                logger.info(
-                    "[%s] source=%s target=%s",
-                    type(item).__name__,
-                    item.source_agent.name,
-                    item.target_agent.name,
-                )
-            elif isinstance(item, ReasoningItem):
-                raw = item.raw_item
-                logger.info(
-                    "[%s] reasoning=%s",
-                    type(item).__name__,
-                    str(getattr(raw, "summary", "") or getattr(raw, "text", ""))[:300],
-                )
+            async for event in result.stream_events():
+                if not isinstance(event, RunItemStreamEvent):
+                    continue
+
+                if event.name == "tool_called" and isinstance(event.item, ToolCallItem):
+                    raw = event.item.raw_item
+                    call_id = getattr(raw, "call_id", None) or ""
+                    tool_name = getattr(raw, "name", None) or "unknown_tool"
+                    args_str = getattr(raw, "arguments", "{}")
+                    try:
+                        args_data: dict[str, Any] = json.loads(args_str)
+                    except (json.JSONDecodeError, TypeError):
+                        args_data = {"raw": args_str}
+                    logger.info("[ToolCall] agent=%s tool=%s", event.item.agent.name, tool_name)
+                    await event_queue.enqueue_event(
+                        TaskStatusUpdateEvent(
+                            task_id=tid,
+                            context_id=context_id,
+                            status=TaskStatus(state=TaskState.working, message=Message(
+                                role=Role.agent,
+                                message_id=uuid4().hex,
+                                parts=[Part(root=DataPart(data=args_data))],
+                                metadata={"type": "tool-call", "toolCallId": call_id, "toolCallName": tool_name},
+                                task_id=tid, context_id=context_id,
+                            )),
+                            final=False,
+                        ),
+                    )
+
+                elif event.name == "tool_output" and isinstance(event.item, ToolCallOutputItem):
+                    raw = event.item.raw_item
+                    call_id = getattr(raw, "call_id", None) or ""
+                    tool_name = getattr(raw, "name", None) or "unknown_tool"
+                    output = event.item.output
+                    if isinstance(output, str):
+                        try:
+                            parsed = json.loads(output)
+                            if isinstance(parsed, dict):
+                                part = Part(root=DataPart(data=parsed))
+                            else:
+                                part = Part(root=TextPart(text=output))
+                        except (json.JSONDecodeError, TypeError):
+                            part = Part(root=TextPart(text=output))
+                    elif isinstance(output, dict):
+                        part = Part(root=DataPart(data=output))
+                    else:
+                        part = Part(root=TextPart(text=str(output)))
+                    logger.info("[ToolResult] tool=%s output=%s", tool_name, str(output)[:500])
+                    await event_queue.enqueue_event(
+                        TaskStatusUpdateEvent(
+                            task_id=tid,
+                            context_id=context_id,
+                            status=TaskStatus(state=TaskState.working, message=Message(
+                                role=Role.agent,
+                                message_id=uuid4().hex,
+                                parts=[part],
+                                metadata={"type": "tool-call-result", "toolCallId": call_id, "toolCallName": tool_name},
+                                task_id=tid, context_id=context_id,
+                            )),
+                            final=False,
+                        ),
+                    )
+
+                elif event.name == "handoff_requested" and isinstance(event.item, HandoffCallItem):
+                    logger.info(
+                        "[Handoff] from=%s to=%s",
+                        event.item.agent.name,
+                        getattr(event.item.raw_item, "name", "?"),
+                    )
+
+                elif event.name == "handoff_output" and isinstance(event.item, HandoffOutputItem):
+                    logger.info(
+                        "[HandoffResult] source=%s target=%s",
+                        event.item.source_agent.name,
+                        event.item.target_agent.name,
+                    )
 
         return (result.final_output or "").strip()

@@ -48,13 +48,13 @@ def build_agent_card(base_url: str) -> AgentCard:
     ]
 
     capabilities = AgentCapabilities(
-        streaming=False,
+        streaming=True,
         push_notifications=False,
         state_transition_history=False,
     )
 
     return AgentCard(
-        name="WeatherAgent",
+        name="Weather Provider",
         description="Provides weather forecasts and air quality details for any location.",
         version="0.1.0",
         preferred_transport="JSONRPC",

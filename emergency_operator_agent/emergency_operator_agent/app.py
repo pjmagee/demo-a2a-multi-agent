@@ -16,7 +16,7 @@ from shared.registry_client import register_with_registry, unregister_from_regis
 setup_phoenix_tracing("emergency-operator-agent")
 
 from emergency_operator_agent.agent_card import build_agent_card
-from emergency_operator_agent.task_executor import TaskOrchestratedExecutor
+from emergency_operator_agent.executor import OperatorAgentExecutor
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 
@@ -30,7 +30,7 @@ def _create_application() -> FastAPI:
     task_store = InMemoryTaskStore()
 
     request_handler = DefaultRequestHandler(
-        agent_executor=TaskOrchestratedExecutor(task_store=task_store),
+        agent_executor=OperatorAgentExecutor(task_store=task_store),
         task_store=task_store,
         push_sender=None,
         queue_manager=InMemoryQueueManager(),
@@ -51,16 +51,6 @@ def _create_application() -> FastAPI:
         """Handle startup tasks."""
         agent_card = build_agent_card(base_url=BASE_URL)
         logger.info("Emergency Operator Agent starting up at %s", BASE_URL)
-
-        # Pre-cache agents to avoid delays during first emergency call
-        from emergency_operator_agent.task_orchestrator import EmergencyTaskOrchestrator
-        orchestrator = EmergencyTaskOrchestrator()
-        logger.info("Pre-fetching available agents from registry...")
-        try:
-            agents = await orchestrator._fetch_available_agents()  # noqa: SLF001
-            logger.info("Successfully pre-cached %d agents", len(agents))
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Failed to pre-cache agents: %s", exc)
 
         # Register with the A2A Registry on startup
         registered = await register_with_registry(

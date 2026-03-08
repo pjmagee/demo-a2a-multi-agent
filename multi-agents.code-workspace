@@ -45,6 +45,10 @@
 			"path": "counter_agent"
 		},
 		{
+			"name": "summarise_agent",
+			"path": "summarise_agent"
+		},
+		{
 			"name": "shared",
 			"path": "shared"
 		},

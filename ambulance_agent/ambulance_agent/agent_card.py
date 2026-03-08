@@ -6,7 +6,7 @@ from a2a.types import AgentCapabilities, AgentCard, AgentSkill
 def build_agent_card(base_url: str) -> AgentCard:
     """Build the agent card for the Ambulance agent."""
     return AgentCard(
-        name="AmbulanceAgent",
+        name="Accident & Emergency Department",
         description="Responds to medical emergencies, triage, and patient transport needs.",
         version="0.1.0",
         preferred_transport="JSONRPC",
@@ -14,7 +14,7 @@ def build_agent_card(base_url: str) -> AgentCard:
         default_output_modes=["text"],
         url=base_url,
         capabilities= AgentCapabilities(
-            streaming=False,
+            streaming=True,
             push_notifications=False,
             state_transition_history=False,
         ),

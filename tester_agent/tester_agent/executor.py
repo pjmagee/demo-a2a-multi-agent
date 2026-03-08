@@ -1,13 +1,16 @@
-"""Agent executor for the Tester agent."""
+"""Tester agent executor with tool-call streaming."""
 
 import logging
 from typing import override
 
 from a2a.server.agent_execution import AgentExecutor
 from a2a.server.agent_execution.context import RequestContext
-from shared.traced_executor import a2a_session
 from a2a.server.events.event_queue import EventQueue
 from a2a.utils import new_agent_text_message
+from shared.openai_session_helpers import get_or_create_session
+from shared.openai_streaming import stream_openai_agent
+from shared.peer_tools import peer_message_context
+from shared.traced_executor import a2a_session
 
 from tester_agent.agent import TesterAgent
 
@@ -17,8 +20,6 @@ logger: logging.Logger = logging.getLogger(name=__name__)
 class TesterAgentExecutor(AgentExecutor):
     """Adapter that bridges the Tester agent with the A2A server runtime."""
 
-    tester_agent: TesterAgent
-
     def __init__(self) -> None:
         """Initialize the TesterAgentExecutor."""
         self.tester_agent = TesterAgent()
@@ -26,33 +27,35 @@ class TesterAgentExecutor(AgentExecutor):
     @override
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         with a2a_session(context, type(self).__name__) as context_id:
-            try:
-                # Invoke agent with guaranteed context_id
-                response_text: str = await self.tester_agent.invoke(
-                    context=context,
-                    context_id=context_id,
-                )
-            except Exception:
-                logger.exception(
-                    "Agent invocation failed context_id=%s",
-                    context_id,
-                )
-                response_text = (
-                    "I apologize, but I encountered an error processing your request."
-                )
+            task_id = context.task_id or context_id
+            user_input = context.get_user_input()
+            session = get_or_create_session(
+                sessions=TesterAgent.sessions,
+                context_id=context_id,
+            )
 
-            logger.info(
-                "Executor sending response context_id=%s text=%s",
-                context_id,
-                response_text,
-            )
-            await event_queue.enqueue_event(
-                event=new_agent_text_message(
-                    context_id=context_id,
-                    text=response_text,
-                    task_id=context.task_id,
-                ),
-            )
+            with peer_message_context(context_id=context_id):
+                try:
+                    await stream_openai_agent(
+                        agent=self.tester_agent.agent,
+                        user_input=user_input,
+                        session=session,
+                        context_id=context_id,
+                        task_id=task_id,
+                        event_queue=event_queue,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Agent invocation failed context_id=%s",
+                        context_id,
+                    )
+                    await event_queue.enqueue_event(
+                        event=new_agent_text_message(
+                            context_id=context_id,
+                            text="I apologize, but I encountered an error processing your request.",
+                            task_id=context.task_id,
+                        ),
+                    )
 
     @override
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:

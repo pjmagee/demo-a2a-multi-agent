@@ -6,7 +6,7 @@ from a2a.types import AgentCapabilities, AgentCard, AgentSkill
 def build_agent_card(base_url: str) -> AgentCard:
     """Build the agent card for the Counter agent."""
     return AgentCard(
-        name="CounterAgent",
+        name="Counting Agent",
         description=(
             "Streams count numbers using SSE (Server-Sent Events). "
             "Demonstrates async streaming with Microsoft agent-framework."
@@ -23,8 +23,8 @@ def build_agent_card(base_url: str) -> AgentCard:
         ),
         skills=[
             AgentSkill(
-                id="stream_count",
-                name="Stream Count",
+                id="count",
+                name="count",
                 description=(
                     "Stream count numbers from 1 to the specified target. "
                     "Each number is sent as a separate SSE message."

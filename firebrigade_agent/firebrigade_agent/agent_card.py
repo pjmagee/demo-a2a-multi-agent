@@ -35,13 +35,13 @@ def build_agent_card(base_url: str) -> AgentCard:
     ]
 
     capabilities = AgentCapabilities(
-        streaming=False,
+        streaming=True,
         push_notifications=False,
         state_transition_history=False,
     )
 
     return AgentCard(
-        name="FireFighterAgent",
+        name="Fire Department Agent",
         description="Responds to fire emergencies, dispatches crews, and assesses risk levels.",
         version="0.1.0",
         preferred_transport="JSONRPC",

@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo } from "react";
+import React, { useRef, useMemo, useCallback, useState } from "react";
 import {
   AssistantRuntimeProvider,
   useLocalRuntime,
@@ -9,15 +9,22 @@ import {
   type ChatModelRunOptions,
   type ChatModelRunResult,
 } from "@assistant-ui/react";
+import type { TrackedToolCall, ToolCallEvent, ToolCallResultEvent } from "../types/a2a";
+import { AgentActivityProvider, type AgentActivity } from "../agent-activity";
 
 // Runtime provider using POST /api/chat with rich A2A content rendering.
 // Streams SSE frames: message-start, message-delta, file-part, status-update,
 // artifact-update, message-complete, error, done.
+//
+// Tracks A2A context_id per thread so conversation state is maintained across
+// messages within the same thread. When switching to a new thread the context_id
+// is reset so the backend creates a fresh A2A conversation.
 
 interface A2ARuntimeProviderProps {
   children: React.ReactNode;
   agentName: string | null;
   token: string;
+  onTitleSuggestion?: (title: string) => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,7 +64,16 @@ const STATUS_LABELS: Record<string, string> = {
   unknown: "❓ Unknown",
 };
 
-export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children, agentName, token }) => {
+export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children, agentName, token, onTitleSuggestion }) => {
+  // Map thread key (first message ID) → A2A context_id so we maintain
+  // conversation context across messages within the same thread.
+  const contextIdMapRef = useRef<Map<string, string>>(new Map());
+  // Track which threads have already had a title generated
+  const titledThreadsRef = useRef<Set<string>>(new Set());
+
+  // Live activity state exposed to sibling components (e.g. agent sidebar)
+  const [activity, setActivity] = useState<AgentActivity>({ isStreaming: false, toolCalls: [] });
+
   const attachmentAdapter = useMemo(
     () =>
       new CompositeAttachmentAdapter([
@@ -65,6 +81,11 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
         new SimpleTextAttachmentAdapter(),
       ]),
     [],
+  );
+
+  const stableOnTitleSuggestion = useCallback(
+    (title: string) => onTitleSuggestion?.(title),
+    [onTitleSuggestion],
   );
 
   const runtime = useLocalRuntime({
@@ -81,6 +102,12 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
         return;
       }
 
+      // Derive a stable key from the first message to identify the thread.
+      // A new thread starts with the first user message; subsequent messages
+      // in the same thread share the same first message ID.
+      const threadKey = messages[0]?.id ?? null;
+      const contextId = threadKey ? (contextIdMapRef.current.get(threadKey) ?? null) : null;
+
       const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8100";
       const resp = await fetch(`${base}/api/chat?token=${encodeURIComponent(token)}`, {
         method: "POST",
@@ -88,7 +115,7 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
           Accept: "text/event-stream",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ messages, agent_name: agentName }),
+        body: JSON.stringify({ messages, agent_name: agentName, context_id: contextId }),
         signal: abortSignal,
       });
 
@@ -108,11 +135,16 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
         return;
       }
 
+      // Signal streaming start
+      setActivity({ isStreaming: true, toolCalls: [] });
+
       // Progressive content accumulation
       let accumulatedText = "";
       let lastStatus = "";
+      let responseContextId: string | null = contextId;
       const fileParts: ContentPart[] = [];
       const sourceParts: ContentPart[] = [];
+      const toolCalls: TrackedToolCall[] = [];
 
       function buildContent(): ContentPart[] {
         const parts: ContentPart[] = [];
@@ -124,6 +156,16 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
           parts.push({ type: "text" as const, text: accumulatedText });
         }
         parts.push(...fileParts, ...sourceParts);
+        // Append individual tool-call parts (standard @assistant-ui/react type)
+        for (const tc of toolCalls) {
+          parts.push({
+            type: "tool-call" as const,
+            toolCallId: tc.id,
+            toolName: tc.name,
+            args: tc.arguments ?? {},
+            result: tc.result,
+          });
+        }
         return parts.length > 0 ? parts : [{ type: "text" as const, text: "" }];
       }
 
@@ -143,6 +185,12 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
           if (!event || !data) continue;
 
           switch (event) {
+            case "message-start": {
+              // Capture context_id from the agent's initial frame
+              const ctx = data.context_id as string | undefined;
+              if (ctx) responseContextId = ctx;
+              break;
+            }
             case "message-delta": {
               const deltaText = (data.delta as Record<string, unknown> | undefined)?.text;
               if (typeof deltaText === "string") {
@@ -181,17 +229,80 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
             }
             case "message-complete": {
               // Use server's authoritative content if available
+              const ctx = data.context_id as string | undefined;
+              if (ctx) responseContextId = ctx;
               const content = data.content as ContentPart[] | undefined;
               if (content && Array.isArray(content) && content.length > 0) {
-                yield { content } as unknown as ChatModelRunResult;
+                // Merge tool-call parts so they persist in chat history
+                const toolCallParts = toolCalls.map((tc) => ({
+                  type: "tool-call" as const,
+                  toolCallId: tc.id,
+                  toolName: tc.name,
+                  args: tc.arguments ?? {},
+                  result: tc.result,
+                }));
+                const merged = [...toolCallParts, ...content];
+                // Persist context_id for this thread before returning
+                if (threadKey && responseContextId) {
+                  contextIdMapRef.current.set(threadKey, responseContextId);
+                }
+                setActivity({ isStreaming: false, toolCalls: [] });
+                yield { content: merged } as unknown as ChatModelRunResult;
+                // Trigger title generation for first exchange
+                if (threadKey && !titledThreadsRef.current.has(threadKey)) {
+                  titledThreadsRef.current.add(threadKey);
+                  _requestTitleSuggestion(base, token, [...messages], content, stableOnTitleSuggestion);
+                }
                 return;
               }
+              break;
+            }
+            case "done": {
+              const ctx = data.context_id as string | undefined;
+              if (ctx) responseContextId = ctx;
               break;
             }
             case "error": {
               const err = (data.error as string) || "stream error";
               accumulatedText += `\n[error: ${err}]`;
               updated = true;
+              break;
+            }
+            case "tool-call": {
+              const tc = data as unknown as ToolCallEvent;
+              toolCalls.push({
+                id: tc.toolCallId,
+                name: tc.toolCallName,
+                arguments: tc.arguments,
+                status: "pending",
+                startedAt: tc.timestamp,
+              });
+              setActivity({ isStreaming: true, toolCalls: [...toolCalls] });
+              updated = true;
+              break;
+            }
+            case "tool-call-result": {
+              const tr = data as unknown as ToolCallResultEvent;
+              const existing = toolCalls.find((t) => t.id === tr.toolCallId);
+              if (existing) {
+                existing.result = tr.result;
+                existing.status = "completed";
+                existing.completedAt = tr.timestamp;
+              } else {
+                toolCalls.push({
+                  id: tr.toolCallId,
+                  name: tr.toolCallName,
+                  result: tr.result,
+                  status: "completed",
+                  completedAt: tr.timestamp,
+                });
+              }
+              setActivity({ isStreaming: true, toolCalls: [...toolCalls] });
+              updated = true;
+              break;
+            }
+            case "data-part": {
+              // Data parts from non-tool-call DataPart; ignore for now
               break;
             }
             default:
@@ -202,12 +313,23 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
           yield { content: buildContent() } as unknown as ChatModelRunResult;
         }
       }
+      // Persist context_id learned during this exchange
+      if (threadKey && responseContextId) {
+        contextIdMapRef.current.set(threadKey, responseContextId);
+      }
       // Final fallback if nothing was yielded via message-complete
       const finalContent = buildContent();
       if (finalContent.length === 1 && (finalContent[0] as { text?: string }).text === "") {
         yield {
           content: [{ type: "text" as const, text: "[empty response]" }],
         } as unknown as ChatModelRunResult;
+      }
+      // Signal streaming end
+      setActivity({ isStreaming: false, toolCalls: [] });
+      // Trigger title generation for the first exchange in this thread
+      if (threadKey && !titledThreadsRef.current.has(threadKey) && accumulatedText) {
+        titledThreadsRef.current.add(threadKey);
+        _requestTitleSuggestion(base, token, [...messages], finalContent, stableOnTitleSuggestion);
       }
     },
   }, {
@@ -216,5 +338,66 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
     },
   });
 
-  return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>;
+  return (
+    <AssistantRuntimeProvider runtime={runtime}>
+      <AgentActivityProvider value={activity}>
+        {children}
+      </AgentActivityProvider>
+    </AssistantRuntimeProvider>
+  );
 };
+
+/**
+ * Fire-and-forget: request a short title for the conversation from the backend
+ * summarise agent and deliver it via callback. Non-critical – failures are
+ * silently swallowed so they never interrupt the chat flow.
+ */
+function _requestTitleSuggestion(
+  base: string,
+  token: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  messages: any[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  assistantContent: any[],
+  callback: (title: string) => void,
+): void {
+  // Build a lightweight summary payload
+  const summaryMessages = [
+    ...messages.map((m) => ({
+      role: m.role as string,
+      content:
+        typeof m.content === "string"
+          ? m.content
+          : Array.isArray(m.content)
+            ? m.content
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .filter((p: any) => p.type === "text")
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .map((p: any) => p.text)
+                .join(" ")
+            : "",
+    })),
+    {
+      role: "assistant",
+      content: assistantContent
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((p: any) => p.type === "text")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((p: any) => p.text)
+        .join(" "),
+    },
+  ];
+
+  fetch(`${base}/api/chat/summarise?token=${encodeURIComponent(token)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: summaryMessages }),
+  })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (data?.title) callback(data.title);
+    })
+    .catch(() => {
+      // Non-critical – silently ignore
+    });
+}

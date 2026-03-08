@@ -4,23 +4,29 @@
 import { Thread } from "@/components/assistant-ui/thread";
 import { AgentPills } from "../components/AgentPills";
 import { A2ARuntimeProvider } from "../lib/assistant/runtime";
-import React, { useState } from "react";
+import { ThreadTitleManager } from "../components/ThreadTitleManager";
+import React, { useRef, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Users } from "lucide-react";
 import { ThreadListSidebar } from "@/components/assistant-ui/threadlist-sidebar";
 import { Separator } from "@/components/ui/separator";
-// Removed breadcrumb for agent display; right sidebar already shows selection
 
 export const Assistant = () => {
-  // Token & agent selection state (simple local state; integrate real auth later)
-  const [token] = useState("test-token"); // TODO: integrate real auth retrieval later
+  const [token] = useState("test-token");
   const [agentName, setAgentName] = useState<string | null>(null);
   const [showAgents, setShowAgents] = useState<boolean>(true);
 
-  // We keep assistant-ui thread/runtime inside our A2ARuntimeProvider which streams from backend.
-  // For now we don't use AssistantChatTransport directly; the provider handles /api/chat or legacy stream.
+  // Ref that ThreadTitleManager populates with its rename handler.
+  // A2ARuntimeProvider calls through this ref when a title suggestion arrives.
+  const titleHandlerRef = useRef<((title: string) => void) | null>(null);
+
   return (
-    <A2ARuntimeProvider agentName={agentName} token={token}>
+    <A2ARuntimeProvider
+      agentName={agentName}
+      token={token}
+      onTitleSuggestion={(title) => titleHandlerRef.current?.(title)}
+    >
+      <ThreadTitleManager onTitleSuggestion={titleHandlerRef} />
       <SidebarProvider>
         <div className="flex h-dvh w-full overflow-hidden">
           {/* Left thread sidebar */}

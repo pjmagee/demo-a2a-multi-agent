@@ -225,6 +225,17 @@ var counter = AddPythonAgent(
     useDocker
 );
 
+var summarise = AddPythonAgent(
+    builder,
+    "summarise-agent",
+    "summarise_agent",
+    8023,
+    openaiApiKey,
+    registry,
+    phoenix,
+    useDocker
+);
+
 // Star Wars Agent - with MongoDB vector store for Fandom articles
 IResourceBuilder<IResourceWithEndpoints> starwars;
 if (useDocker)

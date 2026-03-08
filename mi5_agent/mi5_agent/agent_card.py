@@ -35,7 +35,7 @@ def build_agent_card(base_url: str) -> AgentCard:
     ]
 
     capabilities = AgentCapabilities(
-        streaming=False,
+        streaming=True,
         push_notifications=False,
         state_transition_history=False,
     )

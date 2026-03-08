@@ -68,7 +68,7 @@ def build_agent_card(base_url: str) -> AgentCard:
     ]
 
     return AgentCard(
-        name="GameNewsAgent",
+        name="Game Agent",
         description=(
             "Gaming analysis agent with two skills: (1) Generate comprehensive gaming reports "
             "(recent releases, upcoming titles, industry trends) via a LangGraph multi-step workflow "

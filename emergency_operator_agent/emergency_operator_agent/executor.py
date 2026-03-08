@@ -1,231 +1,66 @@
 """Executor for the Emergency Operator Agent."""
 
 import logging
-from datetime import UTC, datetime
 from typing import override
 
 from a2a.server.agent_execution import AgentExecutor
 from a2a.server.agent_execution.context import RequestContext
-from shared.traced_executor import a2a_session
 from a2a.server.events.event_queue import EventQueue
 from a2a.server.tasks.task_store import TaskStore
-from a2a.types import Message, TaskState, TaskStatus, TaskStatusUpdateEvent
-from a2a.utils import new_agent_text_message
+from a2a.types import TaskState, TaskStatus, TaskStatusUpdateEvent
+from shared.openai_session_helpers import get_or_create_session
+from shared.openai_streaming import stream_openai_agent
+from shared.peer_tools import peer_message_context
+from shared.traced_executor import a2a_session
 
 from emergency_operator_agent.agent import EmergencyOperatorAgent
 
 logger: logging.Logger = logging.getLogger(name=__name__)
 
 
-def _new_task_status_update(
-    task_id: str,
-    context_id: str,
-    state: TaskState,
-    message: str | None = None,
-    final: bool = False,
-) -> TaskStatusUpdateEvent:
-    """Create a task status update event.
-
-    Args:
-        task_id: The task ID
-        context_id: The context ID
-        state: The new task state
-        message: Optional status message
-        final: Whether this is the final event
-
-    Returns:
-        TaskStatusUpdateEvent ready to be enqueued
-
-    """
-    status_message: Message | None = None
-    if message:
-        status_message = new_agent_text_message(
-            context_id=context_id,
-            text=message,
-            task_id=task_id,
-        )
-
-    return TaskStatusUpdateEvent(
-        task_id=task_id,
-        context_id=context_id,
-        status=TaskStatus(
-            state=state,
-            message=status_message,
-            timestamp=datetime.now(UTC).isoformat(),
-        ),
-        final=final,
-    )
-
 class OperatorAgentExecutor(AgentExecutor):
-    """Adapter invoked by the A2A DefaultRequestHandler."""
+    """Adapter invoked by the A2A DefaultRequestHandler.
+
+    Uses streaming to emit tool-call and tool-call-result events
+    following the a2a-ui metadata convention.
+    """
 
     def __init__(self, task_store: TaskStore) -> None:
-        """Initialize the adapter with the Emergency Operator Agent.
-
-        Args:
-            task_store: The task store for tracking task state
-
-        """
+        """Initialize the adapter with the Emergency Operator Agent."""
         self.agent = EmergencyOperatorAgent()
         self.task_store = task_store
-
-    async def _send_status_update(
-        self,
-        event_queue: EventQueue,
-        task_id: str,
-        context_id: str,
-        state: TaskState,
-        message: str | None = None,
-        final: bool = False,
-    ) -> None:
-        """Send a task status update to the event queue.
-
-        Args:
-            event_queue: The event queue
-            task_id: The task ID
-            context_id: The context ID
-            state: The new task state
-            message: Optional status message
-            final: Whether this is the final event
-
-        """
-        status_update = _new_task_status_update(
-            task_id=task_id,
-            context_id=context_id,
-            state=state,
-            message=message,
-            final=final,
-        )
-        logger.info(
-            "Sending task status update task_id=%s state=%s",
-            task_id,
-            state.value,
-        )
-        await event_queue.enqueue_event(event=status_update)
 
     @override
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         with a2a_session(context, type(self).__name__) as context_id:
             task_id: str = context.task_id or context_id
-
-            # Send initial "working" status update
-            await self._send_status_update(
-                event_queue=event_queue,
-                task_id=task_id,
+            user_input: str = context.get_user_input()
+            session = get_or_create_session(
+                sessions=EmergencyOperatorAgent.sessions,
                 context_id=context_id,
-                state=TaskState.working,
-                message="Emergency operator is processing your call...",
             )
 
             try:
-                # Invoke agent with guaranteed context_id and callbacks
-                response_text: str = await self.agent.invoke(
-                    context=context,
-                    context_id=context_id,
-                    status_callback=lambda msg: self._on_agent_status(
+                with peer_message_context(context_id=context_id):
+                    await stream_openai_agent(
+                        agent=self.agent.agent,
+                        user_input=user_input,
+                        session=session,
+                        context_id=context_id,
+                        task_id=task_id,
                         event_queue=event_queue,
-                        task_id=task_id,
-                        context_id=context_id,
-                        message=msg,
-                    ),
-                    message_callback=lambda msg: self._on_agent_message(
-                        event_queue=event_queue,
-                        task_id=task_id,
-                        context_id=context_id,
-                        message=msg,
-                    ),
-                )
-
-                logger.info(
-                    "Executor sending response context_id=%s text=%s",
-                    context_id,
-                    response_text,
-                )
-
-                # Send the final text message
-                await event_queue.enqueue_event(
-                    event=new_agent_text_message(
-                        context_id=context_id,
-                        text=response_text,
-                        task_id=task_id,
-                    ),
-                )
-
-                # Send final "completed" status update
-                await self._send_status_update(
-                    event_queue=event_queue,
-                    task_id=task_id,
-                    context_id=context_id,
-                    state=TaskState.completed,
-                    message="Call handled successfully",
-                    final=True,
-                )
-
-            except Exception as e:
+                    )
+            except Exception:
                 logger.exception("Error executing emergency operator agent")
-                # Send "failed" status update
-                await self._send_status_update(
-                    event_queue=event_queue,
-                    task_id=task_id,
-                    context_id=context_id,
-                    state=TaskState.failed,
-                    message=f"Error processing call: {e!s}",
-                    final=True,
+                await event_queue.enqueue_event(
+                    TaskStatusUpdateEvent(
+                        task_id=task_id,
+                        context_id=context_id,
+                        status=TaskStatus(state=TaskState.failed),
+                        final=True,
+                    ),
                 )
                 raise
-
-    async def _on_agent_status(
-        self,
-        event_queue: EventQueue,
-        task_id: str,
-        context_id: str,
-        message: str,
-    ) -> None:
-        """Handle status updates from the agent during execution.
-
-        Args:
-            event_queue: The event queue
-            task_id: The task ID
-            context_id: The context ID
-            message: Status message from the agent
-
-        """
-        await self._send_status_update(
-            event_queue=event_queue,
-            task_id=task_id,
-            context_id=context_id,
-            state=TaskState.working,
-            message=message,
-        )
-
-    async def _on_agent_message(
-        self,
-        event_queue: EventQueue,
-        task_id: str,
-        context_id: str,
-        message: str,
-    ) -> None:
-        """Handle intermediate text messages from the agent during execution.
-
-        Args:
-            event_queue: The event queue
-            task_id: The task ID
-            context_id: The context ID
-            message: Text message from the agent
-
-        """
-        logger.info(
-            "Sending intermediate message task_id=%s message=%s",
-            task_id,
-            message,
-        )
-        await event_queue.enqueue_event(
-            event=new_agent_text_message(
-                context_id=context_id,
-                text=message,
-                task_id=task_id,
-            ),
-        )
 
     @override
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:

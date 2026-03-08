@@ -4,13 +4,11 @@
 import asyncio
 import logging
 import os
-from collections.abc import Awaitable, Callable
 from typing import ClassVar
 from uuid import uuid4
 
 import httpx
 from a2a.client import A2ACardResolver, A2AClient
-from a2a.server.agent_execution.context import RequestContext
 from a2a.types import (
     AgentCard,
     Message,
@@ -21,9 +19,8 @@ from a2a.types import (
     SendMessageResponse,
     TextPart,
 )
-from agents import Agent, Runner, RunResult, Tool, function_tool
+from agents import Agent, Tool, function_tool
 from agents.memory.session import Session
-from shared.openai_session_helpers import get_or_create_session_from_context
 from shared.peer_tools import (
     HTTPX_TIMEOUT,
     _current_context_id,
@@ -32,11 +29,6 @@ from shared.peer_tools import (
 )
 
 logger: logging.Logger = logging.getLogger(name=__name__)
-
-
-# Type alias for status and message callbacks
-StatusCallback = Callable[[str], Awaitable[None]]
-MessageCallback = Callable[[str], Awaitable[None]]
 
 
 def _normalize_url(url: str) -> str:
@@ -65,10 +57,6 @@ class EmergencyOperatorAgent:
 
     def __init__(self) -> None:
         """Initialize the Emergency Operator Agent."""
-        # Store callback references for tool building
-        self._status_callback: StatusCallback | None = None
-        self._message_callback: MessageCallback | None = None
-
         self.agent = Agent(
             name="Emergency Operator Agent",
             instructions=(
@@ -104,11 +92,6 @@ class EmergencyOperatorAgent:
         async def list_agents() -> list[AgentCard]:
             """List all available agents."""
             logger.info("list_agents tool called")
-            if self._status_callback:
-                logger.info("Calling status_callback: Checking available emergency services...")
-                await self._status_callback(
-                    "Checking available emergency services...",
-                )
 
             # Fetch peer addresses from registry
             addresses = await load_peer_addresses_from_registry()
@@ -116,15 +99,6 @@ class EmergencyOperatorAgent:
 
             agent_cards: list[AgentCard] = []
             if not addresses:
-                if self._status_callback:
-                    await self._status_callback(
-                        "Warning: No emergency services registered",
-                    )
-                if self._message_callback:
-                    await self._message_callback(
-                        "[WARNING] No emergency services are currently "
-                        "available in the system.",
-                    )
                 return agent_cards
 
             async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as httpx_client:
@@ -174,9 +148,6 @@ class EmergencyOperatorAgent:
                 None if the peer cannot be reached or declines the request.
 
             """
-            if self._status_callback:
-                await self._status_callback(f"Dispatching to {agent_name}...")
-
             logger.info("Sending message '%s' to %s", message, agent_name)
 
             # Fetch peer addresses from registry
@@ -245,18 +216,6 @@ class EmergencyOperatorAgent:
                             )
                             return None
 
-                        if self._status_callback:
-                            await self._status_callback(
-                                f"Received response from {agent_name}",
-                            )
-
-                        # Send message callback confirming dispatch
-                        if self._message_callback:
-                            await self._message_callback(
-                                f"\u2713 Dispatched: {agent_name} has been "
-                                f"notified and is responding",
-                            )
-
                         logger.info(
                             "Peer %s responded to context_id=%s with status=%s",
                             agent_name,
@@ -268,62 +227,3 @@ class EmergencyOperatorAgent:
             return None
 
         return send_message
-
-    async def invoke(
-        self,
-        context: RequestContext,
-        context_id: str,
-        status_callback: StatusCallback | None = None,
-        message_callback: MessageCallback | None = None,
-    ) -> str:
-        """Process the caller interaction and return the model response.
-
-        Args:
-            context: Request context containing user input
-            context_id: Guaranteed non-null context ID (created by executor)
-            status_callback: Optional callback for sending status updates
-                during execution
-            message_callback: Optional callback for sending intermediate
-                text messages during execution
-
-        Returns:
-            Agent response text
-
-        """
-        user_input: str = context.get_user_input()
-        session: Session | None = get_or_create_session_from_context(
-            sessions=EmergencyOperatorAgent.sessions,
-            context=context,
-        )
-
-        # Set callbacks for tools to use
-        self._status_callback = status_callback
-        self._message_callback = message_callback
-
-        # Report initial triage status
-        if status_callback:
-            await status_callback("Assessing emergency situation...")
-        
-        if message_callback:
-            await message_callback(
-                "\ud83d\udea8 Emergency call received. Analyzing situation "
-                "and dispatching appropriate services...",
-            )
-
-        # Use the context_id provided by the executor for peer messaging
-        with peer_message_context(context_id=context_id):
-            result: RunResult = await Runner.run(
-                starting_agent=self.agent,
-                input=user_input,
-                session=session,
-            )
-
-        # Clear callbacks after execution
-        self._status_callback = None
-        self._message_callback = None
-
-        response_text: str = result.final_output_as(
-            cls=str,
-            raise_if_incorrect_type=True,
-        )
-        return response_text

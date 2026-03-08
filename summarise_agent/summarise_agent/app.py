@@ -1,4 +1,4 @@
-"""Application entry point for the Fire Brigade Agent."""
+"""Application entry point for the Summarise agent."""
 
 import logging
 import os
@@ -14,16 +14,17 @@ from fastapi import FastAPI
 from shared.phoenix_setup import setup_phoenix_tracing
 from shared.registry_client import register_with_registry, unregister_from_registry
 
-from firebrigade_agent.agent_card import build_agent_card
-from firebrigade_agent.executor import FireBrigadeAgentExecutor
+from summarise_agent.agent_card import build_agent_card
+from summarise_agent.executor import SummariseAgentExecutor
 
 # Instrument before importing agent/LLM modules
-setup_phoenix_tracing("firebrigade-agent")
+setup_phoenix_tracing("summarise-agent")
+
 
 
 logger = logging.getLogger(__name__)
 
-PORT = int(os.getenv(key="PORT", default="8011"))
+PORT = int(os.getenv(key="PORT", default="8023"))
 HOST: str = os.getenv(key="HOST", default="127.0.0.1")
 BASE_URL: str = os.getenv(key="BASE_URL", default=f"http://{HOST}:{PORT}")
 
@@ -32,31 +33,48 @@ BASE_URL: str = os.getenv(key="BASE_URL", default=f"http://{HOST}:{PORT}")
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Manage agent registration lifecycle."""
     agent_card = build_agent_card(base_url=BASE_URL)
-    logger.info("Fire Brigade Agent starting at %s", BASE_URL)
-    await register_with_registry(BASE_URL, agent_card)
+    logger.info("Summarise Agent starting at %s", BASE_URL)
+
+    registered = await register_with_registry(
+        agent_address=BASE_URL,
+        agent_card=agent_card,
+    )
+    if registered:
+        logger.info("Successfully registered with A2A Registry")
+    else:
+        logger.warning("Failed to register with A2A Registry")
+
     yield
-    await unregister_from_registry(BASE_URL)
+
+    logger.info("Summarise Agent shutting down...")
+    unregistered = await unregister_from_registry(agent_address=BASE_URL)
+    if unregistered:
+        logger.info("Successfully unregistered from A2A Registry")
+    else:
+        logger.warning("Failed to unregister from A2A Registry")
 
 
 def _create_application() -> FastAPI:
-    executor = FireBrigadeAgentExecutor()
+    agent_card = build_agent_card(base_url=BASE_URL)
+    agent_executor = SummariseAgentExecutor()
     request_handler = DefaultRequestHandler(
-        agent_executor=executor,
+        agent_executor=agent_executor,
         task_store=InMemoryTaskStore(),
         push_sender=None,
         queue_manager=InMemoryQueueManager(),
     )
-    server = A2AFastAPIApplication(
-        agent_card=build_agent_card(base_url=BASE_URL),
+    app = A2AFastAPIApplication(
+        agent_card=agent_card,
         http_handler=request_handler,
         extended_agent_card=None,
         card_modifier=None,
         context_builder=None,
         extended_card_modifier=None,
     )
-    fastapi_app: FastAPI = server.build()
-    fastapi_app.router.lifespan_context = lifespan
-    return fastapi_app
+    api: FastAPI = app.build()
+    api.router.lifespan_context = lifespan
+    return api
+
 
 app: FastAPI = _create_application()
 
@@ -64,7 +82,7 @@ app: FastAPI = _create_application()
 def run() -> None:
     """Run the application."""
     uvicorn.run(
-        app="firebrigade_agent.app:app",
+        app="summarise_agent.app:app",
         host=HOST,
         port=PORT,
         reload=False,

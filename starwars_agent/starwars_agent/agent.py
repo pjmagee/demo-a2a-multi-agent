@@ -81,6 +81,11 @@ class StarWarsAgent:
     def __init__(self) -> None:
         self._agent = build_strands_agent()
 
+    @property
+    def agent(self) -> Agent:
+        """Return the underlying Strands agent instance."""
+        return self._agent
+
     async def invoke(self, user_input: str) -> str:
         """Run the agent with user input and return the response text."""
         result = await self._agent.invoke_async(user_input)

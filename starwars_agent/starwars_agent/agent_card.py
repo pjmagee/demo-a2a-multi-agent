@@ -17,7 +17,7 @@ def build_agent_card(base_url: str) -> AgentCard:
         capabilities=AgentCapabilities(
             push_notifications=False,
             state_transition_history=False,
-            streaming=False,
+            streaming=True,
         ),
         preferred_transport="JSONRPC",
         default_input_modes=["text"],

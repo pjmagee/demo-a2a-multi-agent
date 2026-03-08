@@ -37,6 +37,7 @@ from typing import Annotated, TYPE_CHECKING, Any, cast
 from a2a.types import (
     AgentCard,
     Artifact,
+    DataPart,
     FilePart,
     FileWithBytes,
     FileWithUri,
@@ -552,6 +553,49 @@ def _format_status_update(event: TaskStatusUpdateEvent) -> str:
     )
 
 
+def _format_tool_call(message: A2AMessage) -> str:
+    """Format a tool-call event from a Message with tool-call metadata."""
+    metadata = message.metadata or {}
+    payload: dict[str, object] = {
+        "toolCallId": metadata.get("toolCallId", ""),
+        "toolCallName": metadata.get("toolCallName", ""),
+        "timestamp": metadata.get("timestamp", ""),
+    }
+    # Extract arguments from DataPart
+    for part in message.parts:
+        part_root = getattr(part, "root", None)
+        if isinstance(part_root, DataPart):
+            payload["arguments"] = part_root.data
+            break
+    return (
+        "event:tool-call\n"
+        "data:" + json.dumps(payload, ensure_ascii=False) + "\n\n"
+    )
+
+
+def _format_tool_result(message: A2AMessage) -> str:
+    """Format a tool-call-result event from a Message with tool-call-result metadata."""
+    metadata = message.metadata or {}
+    payload: dict[str, object] = {
+        "toolCallId": metadata.get("toolCallId", ""),
+        "toolCallName": metadata.get("toolCallName", ""),
+        "timestamp": metadata.get("timestamp", ""),
+    }
+    # Extract result from parts (TextPart or DataPart)
+    for part in message.parts:
+        part_root = getattr(part, "root", None)
+        if isinstance(part_root, TextPart) and part_root.text:
+            payload["result"] = part_root.text
+            break
+        if isinstance(part_root, DataPart):
+            payload["result"] = part_root.data
+            break
+    return (
+        "event:tool-call-result\n"
+        "data:" + json.dumps(payload, ensure_ascii=False) + "\n\n"
+    )
+
+
 def _format_file_part(mid: str, file_part: FilePart) -> str:
     file_obj = file_part.file
     payload: dict[str, object] = {"id": mid}
@@ -619,6 +663,18 @@ def _process_parts(
                     "title": file_obj.name,
                 })
             frames.append(_format_file_part(mid, part_root))
+        elif isinstance(part_root, DataPart):
+            state.content_parts.append({
+                "type": "data",
+                "data": part_root.data,
+            })
+            frames.append(
+                "event:data-part\n"
+                "data:" + json.dumps(
+                    {"id": mid, "data": part_root.data},
+                    ensure_ascii=False,
+                ) + "\n\n"
+            )
     return frames
 
 
@@ -695,15 +751,25 @@ async def _stream_agent_reply(
                     yield f
 
             elif isinstance(result, TaskStatusUpdateEvent):
-                yield _format_status_update(result)
-                if result.status.message:
-                    state.message_id = (
-                        state.message_id or result.status.message.message_id
-                    )
-                    for f in _ensure_started():
-                        yield f
-                    for f in _process_parts(result.status.message.parts, state):
-                        yield f
+                # Check for tool-call metadata in the status message
+                status_msg = result.status.message
+                msg_metadata: dict[str, str] = dict(getattr(status_msg, "metadata", None) or {})
+                msg_type: str = str(msg_metadata.get("type", ""))
+
+                if msg_type == "tool-call" and status_msg is not None:
+                    yield _format_tool_call(status_msg)
+                elif msg_type == "tool-call-result" and status_msg is not None:
+                    yield _format_tool_result(status_msg)
+                else:
+                    yield _format_status_update(result)
+                    if status_msg:
+                        state.message_id = (
+                            state.message_id or status_msg.message_id
+                        )
+                        for f in _ensure_started():
+                            yield f
+                        for f in _process_parts(status_msg.parts, state):
+                            yield f
 
             elif isinstance(result, TaskArtifactUpdateEvent):
                 for f in _ensure_started():
@@ -775,3 +841,92 @@ async def data_stream_chat(
             "Connection": "keep-alive",
         },
     )
+
+
+# -------------------- Summarise (thread title) endpoint -------------------
+
+SUMMARISE_AGENT_NAME = "Summarise Agent"
+
+
+class SummarisePayload(BaseModel):
+    """Request schema for the /api/chat/summarise endpoint."""
+
+    messages: list[dict[str, object]]
+
+
+def _build_summarise_prompt(messages: list[dict[str, object]]) -> str:
+    """Collapse the conversation into a prompt for the summarise agent."""
+    lines: list[str] = []
+    for msg in messages:
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            text_parts = [
+                str(p.get("text", ""))
+                for p in content  # type: ignore[union-attr]
+                if isinstance(p, dict) and p.get("type") == "text"
+            ]
+            content = " ".join(text_parts)
+        lines.append(f"{role}: {content}")
+    conversation = "\n".join(lines)
+    return (
+        "Generate a short descriptive title (3-8 words) for this conversation:\n\n"
+        + conversation
+    )
+
+
+@router.post("/chat/summarise")
+async def summarise_chat(
+    payload: SummarisePayload,
+    client: AgentClientDependency,
+    _authorized: Annotated[None, Depends(require_auth)],
+) -> dict[str, str]:
+    """Return a short title summarising the conversation.
+
+    Sends the conversation to the Summarise Agent and returns its response.
+    Falls back to a generic title if the agent is unavailable.
+    """
+    prompt = _build_summarise_prompt(payload.messages)
+
+    try:
+        response = await client.send_message(
+            agent_name=SUMMARISE_AGENT_NAME,
+            message=prompt,
+        )
+    except Exception:
+        logger.debug("Summarise agent call failed", exc_info=True)
+        return {"title": "New Conversation"}
+
+    if response is None:
+        return {"title": "New Conversation"}
+
+    # Extract text from the response
+    root = getattr(response, "root", None)
+    if root is None:
+        return {"title": "New Conversation"}
+    result = getattr(root, "result", None)
+    if result is None:
+        return {"title": "New Conversation"}
+
+    # result could be a Message or Task
+    parts = getattr(result, "parts", None)
+    if not parts:
+        # Try via status message (Task-based response)
+        history = getattr(result, "history", None)
+        if history:
+            for entry in reversed(history):
+                msg = getattr(entry, "message", entry)
+                msg_parts = getattr(msg, "parts", None)
+                if msg_parts:
+                    parts = msg_parts
+                    break
+
+    if parts:
+        for part in parts:
+            part_root = getattr(part, "root", None)
+            if isinstance(part_root, TextPart) and part_root.text:
+                title = part_root.text.strip().strip('"').strip("'")
+                if title:
+                    return {"title": title}
+
+    return {"title": "New Conversation"}

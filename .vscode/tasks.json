@@ -151,6 +151,19 @@
       }
     },
     {
+      "label": "summarise_agent: uv sync",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "sync",
+        "--group",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/summarise_agent"
+      }
+    },
+    {
       "label": "shared: uv sync",
       "type": "shell",
       "command": "uv",
@@ -276,7 +289,8 @@
         "tester_agent: uv sync",
         "greetings_agent: uv sync",
         "game_news_agent: uv sync",
-        "starwars_agent: uv sync"
+        "starwars_agent: uv sync",
+        "summarise_agent: uv sync"
       ]
     },
     {

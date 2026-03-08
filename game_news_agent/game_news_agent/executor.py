@@ -40,7 +40,10 @@ class GameNewsAgentExecutor(AgentExecutor):
             logger.info(f"GameNewsAgentExecutor.execute context_id={context_id}")
 
             try:
-                final_text = await self.agent.invoke(context, context_id, event_queue)
+                final_text = await self.agent.invoke(
+                    context, context_id, event_queue,
+                    task_id=context.task_id or context_id,
+                )
             except Exception as e:
                 logger.exception(f"GameNewsAgent invocation failed context_id={context_id}")
                 await event_queue.enqueue_event(
