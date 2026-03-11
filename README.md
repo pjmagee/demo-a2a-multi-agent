@@ -12,13 +12,13 @@ An environment for learning multi-agent systems using **Agent-to-Agent (A2A) Pro
 
 **Tech Stack:**
 
-- **Protocol**: A2A (Agent-to-Agent) for inter-agent communication
-- **Agent SDKs**: OpenAI Agent SDK, Microsoft Agent Framework, Strand SDK
+- **Protocols**: A2A (Agent-to-Agent) for inter-agent communication, AG-UI, MCP
+- **Agent SDKs**: OpenAI Agents, MSFT Agent Framework, Amazon's Strands, LangGraph
 - **Orchestration**: Aspire for service management and telemetry
 - **Observability**: Phoenix (LLM tracing), OpenTelemetry (distributed tracing)
 - **Languages**: Python 3.13, TypeScript/React, C#
 - **Tools**: uv (Python package management), VSCode, MCPs
-- **DB**: MongoDB (task persistence, storage, vector search)
+- **DBs**: MongoDB (task persistence, storage, vector search)
 
 ## Quick Start
 

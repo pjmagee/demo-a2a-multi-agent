@@ -247,7 +247,8 @@ const MessageError: FC = () => {
   );
 };
 
-const FilePartDisplay: FC<FileMessagePartProps> = ({ data, mimeType }) => {
+const FilePartDisplay: FC<FileMessagePartProps> = ({ data, mimeType, filename }) => {
+  const displayName = filename || "download";
   const handleDownload = () => {
     const byteChars = atob(data);
     const bytes = new Uint8Array(byteChars.length);
@@ -258,7 +259,7 @@ const FilePartDisplay: FC<FileMessagePartProps> = ({ data, mimeType }) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "download";
+    a.download = displayName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -266,7 +267,7 @@ const FilePartDisplay: FC<FileMessagePartProps> = ({ data, mimeType }) => {
   };
   return (
     <div className="my-2 flex items-center gap-2 rounded-md border bg-muted/50 p-3">
-      <span className="text-sm font-medium">📎 File</span>
+      <span className="text-sm font-medium">📎 {displayName}</span>
       <span className="text-xs text-muted-foreground">({mimeType})</span>
       <button
         onClick={handleDownload}

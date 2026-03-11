@@ -241,7 +241,7 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
                   args: tc.arguments ?? {},
                   result: tc.result,
                 }));
-                const merged = [...toolCallParts, ...content];
+                const merged = [...toolCallParts, ...fileParts, ...content];
                 // Persist context_id for this thread before returning
                 if (threadKey && responseContextId) {
                   contextIdMapRef.current.set(threadKey, responseContextId);
@@ -254,6 +254,28 @@ export const A2ARuntimeProvider: React.FC<A2ARuntimeProviderProps> = ({ children
                   _requestTitleSuggestion(base, token, [...messages], content, stableOnTitleSuggestion);
                 }
                 return;
+              }
+              break;
+            }
+            case "artifact-update": {
+              // Artifact with inline text content → offer as downloadable file
+              const artifactContent = data.content as string | undefined;
+              if (artifactContent) {
+                const artifactName = (data.name as string) || "artifact";
+                const artifactMime = (data.mimeType as string) || "text/plain";
+                // Derive a filename from the artifact name
+                const ext = artifactMime === "text/markdown" ? ".md" : ".txt";
+                const safeName = artifactName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "");
+                const filename = `${safeName}${ext}`;
+                // Encode text as base64 for the file content part
+                const base64 = btoa(unescape(encodeURIComponent(artifactContent)));
+                fileParts.push({
+                  type: "file" as const,
+                  data: base64,
+                  mimeType: artifactMime,
+                  filename,
+                });
+                updated = true;
               }
               break;
             }

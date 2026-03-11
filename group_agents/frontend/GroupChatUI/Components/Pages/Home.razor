@@ -1,0 +1,264 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@inject GroupChatService ChatService
+
+<PageTitle>Group Chat</PageTitle>
+
+<div class="split-container">
+    @* ===== LEFT PANEL: Chat ===== *@
+    <div class="chat-panel">
+        <div class="panel-header">
+            <h2>Group Chat</h2>
+            <button class="btn-sm btn-secondary" @onclick="ClearChat">Clear</button>
+        </div>
+
+        <div class="messages-area" @ref="_messagesContainer">
+            @foreach (var msg in _messages)
+            {
+                <div class="message @(msg.Role == "user" ? "message-user" : "message-agent")">
+                    <div class="message-meta">
+                        <strong>@(string.IsNullOrEmpty(msg.AgentName) ? msg.Role : msg.AgentName)</strong>
+                        <span class="timestamp">@msg.Timestamp.ToString("HH:mm:ss")</span>
+                    </div>
+                    <div class="message-body">@msg.Content</div>
+                </div>
+            }
+            @if (_isStreaming)
+            {
+                <div class="message message-agent streaming">
+                    <div class="message-meta">
+                        <strong>@(_currentAgentName ?? "...")</strong>
+                    </div>
+                    <div class="message-body">@_streamingContent<span class="cursor">▌</span></div>
+                </div>
+            }
+        </div>
+
+        <div class="input-area">
+            <input type="text"
+                   @bind="_userInput"
+                   @bind:event="oninput"
+                   @onkeydown="HandleKeyDown"
+                   placeholder="Type a message..."
+                   disabled="@_isStreaming"
+                   class="chat-input" />
+            <button @onclick="SendMessage" disabled="@(_isStreaming || string.IsNullOrWhiteSpace(_userInput))" class="btn-primary">
+                Send
+            </button>
+        </div>
+    </div>
+
+    @* ===== RIGHT PANEL: Agent Management ===== *@
+    <div class="agents-panel">
+        <div class="panel-header">
+            <h2>Agents</h2>
+        </div>
+
+        <div class="agent-form">
+            <div class="form-group">
+                <label for="agentName">Agent Name</label>
+                <input id="agentName" type="text" @bind="_newAgentName" placeholder="e.g. Researcher" class="form-input" />
+            </div>
+            <div class="form-group">
+                <label for="agentPrompt">System Prompt</label>
+                <textarea id="agentPrompt" @bind="_newAgentPrompt" rows="4"
+                          placeholder="e.g. You are a research specialist who gathers facts..."
+                          class="form-input"></textarea>
+            </div>
+            <button @onclick="AddAgent" disabled="@(string.IsNullOrWhiteSpace(_newAgentName) || string.IsNullOrWhiteSpace(_newAgentPrompt))"
+                    class="btn-primary btn-full">
+                Add Agent
+            </button>
+        </div>
+
+        <div class="agent-list">
+            @if (_agents.Count == 0)
+            {
+                <p class="empty-state">No agents configured. Add one above to start a group chat.</p>
+            }
+            @foreach (var agent in _agents)
+            {
+                <div class="agent-card">
+                    <div class="agent-card-header">
+                        <strong>@agent.Name</strong>
+                        <button class="btn-sm btn-danger" @onclick="() => RemoveAgent(agent.Name)">Remove</button>
+                    </div>
+                    <p class="agent-card-prompt">@agent.SystemPrompt</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly List<ChatMessage> _messages = [];
+    private List<AgentDefinition> _agents = [];
+
+    private string _userInput = string.Empty;
+    private string _newAgentName = string.Empty;
+    private string _newAgentPrompt = string.Empty;
+
+    private bool _isStreaming;
+    private string _streamingContent = string.Empty;
+    private string? _currentAgentName;
+
+    private ElementReference _messagesContainer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAgents();
+    }
+
+    private async Task LoadAgents()
+    {
+        try
+        {
+            _agents = await ChatService.GetAgentsAsync();
+        }
+        catch
+        {
+            // Backend may not be running yet
+        }
+    }
+
+    private async Task AddAgent()
+    {
+        if (string.IsNullOrWhiteSpace(_newAgentName) || string.IsNullOrWhiteSpace(_newAgentPrompt))
+            return;
+
+        var agent = new AgentDefinition { Name = _newAgentName.Trim(), SystemPrompt = _newAgentPrompt.Trim() };
+        await ChatService.AddAgentAsync(agent);
+
+        _newAgentName = string.Empty;
+        _newAgentPrompt = string.Empty;
+        await LoadAgents();
+    }
+
+    private async Task RemoveAgent(string name)
+    {
+        await ChatService.RemoveAgentAsync(name);
+        await LoadAgents();
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !_isStreaming && !string.IsNullOrWhiteSpace(_userInput))
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_userInput) || _isStreaming)
+            return;
+
+        var userText = _userInput.Trim();
+        _userInput = string.Empty;
+
+        // Add user message to display
+        _messages.Add(new ChatMessage
+        {
+            Id = Guid.NewGuid().ToString(),
+            Role = "user",
+            Content = userText,
+            AgentName = "You",
+        });
+
+        _isStreaming = true;
+        _streamingContent = string.Empty;
+        _currentAgentName = null;
+        StateHasChanged();
+
+        try
+        {
+            string? currentMessageId = null;
+            var buffer = new System.Text.StringBuilder();
+
+            await foreach (var evt in ChatService.SendMessageAsync(userText, _messages))
+            {
+                switch (evt.Type)
+                {
+                    case "TEXT_MESSAGE_START":
+                        currentMessageId = evt.MessageId;
+                        buffer.Clear();
+                        break;
+
+                    case "TEXT_MESSAGE_CONTENT":
+                        if (evt.Delta is not null)
+                        {
+                            buffer.Append(evt.Delta);
+                            _streamingContent = buffer.ToString();
+
+                            // Extract agent name from "[AgentName]: " prefix
+                            var content = _streamingContent;
+                            if (content.StartsWith('[') && content.Contains("]: "))
+                            {
+                                var endBracket = content.IndexOf("]: ");
+                                _currentAgentName = content[1..endBracket];
+                            }
+
+                            StateHasChanged();
+                        }
+                        break;
+
+                    case "TEXT_MESSAGE_END":
+                        if (buffer.Length > 0)
+                        {
+                            var finalContent = buffer.ToString();
+                            var agentName = "Assistant";
+
+                            // Parse out agent name prefix
+                            if (finalContent.StartsWith('[') && finalContent.Contains("]: "))
+                            {
+                                var idx = finalContent.IndexOf("]: ");
+                                agentName = finalContent[1..idx];
+                                finalContent = finalContent[(idx + 3)..];
+                            }
+
+                            _messages.Add(new ChatMessage
+                            {
+                                Id = currentMessageId ?? Guid.NewGuid().ToString(),
+                                Role = "assistant",
+                                Content = finalContent,
+                                AgentName = agentName,
+                            });
+
+                            buffer.Clear();
+                            _streamingContent = string.Empty;
+                            _currentAgentName = null;
+                            StateHasChanged();
+                        }
+                        break;
+
+                    case "RUN_FINISHED":
+                        break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _messages.Add(new ChatMessage
+            {
+                Id = Guid.NewGuid().ToString(),
+                Role = "assistant",
+                Content = $"Error: {ex.Message}",
+                AgentName = "System",
+            });
+        }
+        finally
+        {
+            _isStreaming = false;
+            _streamingContent = string.Empty;
+            _currentAgentName = null;
+            StateHasChanged();
+        }
+    }
+
+    private void ClearChat()
+    {
+        _messages.Clear();
+        ChatService.ResetThread();
+        StateHasChanged();
+    }
+}

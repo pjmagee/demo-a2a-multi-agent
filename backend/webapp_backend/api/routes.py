@@ -626,6 +626,15 @@ def _format_artifact_update(mid: str, artifact: Artifact) -> str:
         "name": artifact.name,
         "description": artifact.description,
     }
+    # Include text content so the frontend can offer a download
+    for part in artifact.parts:
+        part_root = getattr(part, "root", None)
+        if isinstance(part_root, TextPart) and part_root.text:
+            part_meta: dict[str, str] = dict(getattr(part_root, "metadata", None) or {})
+            mime: str = part_meta.get("mime_type", "text/plain")
+            payload["content"] = part_root.text
+            payload["mimeType"] = mime
+            break
     return (
         "event:artifact-update\n"
         "data:" + json.dumps(payload, ensure_ascii=False) + "\n\n"

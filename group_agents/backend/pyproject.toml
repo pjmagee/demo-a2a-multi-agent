@@ -1,0 +1,34 @@
+[project]
+name = "group-chat-backend"
+version = "0.1.0"
+description = "Group Chat AG-UI backend using Microsoft Agent Framework"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "agent-framework-core",
+  "agent-framework-orchestrations",
+  "fastapi",
+  "uvicorn",
+  "pydantic",
+]
+
+[tool.uv]
+package = true
+
+[dependency-groups]
+dev = [
+  "ruff",
+]
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "CPY",
+  "D417",
+  "D418",
+  "D419",
+  "DOC",
+]

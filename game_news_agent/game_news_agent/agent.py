@@ -1165,6 +1165,10 @@ class GameNewsAgent:
                 starting_agent=agent, input=runner_input, session=session,
             )
 
+            # Track call_id → tool_name so we can label tool results correctly
+            # (ToolCallOutputItem.raw_item is a TypedDict and doesn't carry the name).
+            tool_names: dict[str, str] = {}
+
             async for event in result.stream_events():
                 if not isinstance(event, RunItemStreamEvent):
                     continue
@@ -1178,6 +1182,8 @@ class GameNewsAgent:
                         args_data: dict[str, Any] = json.loads(args_str)
                     except (json.JSONDecodeError, TypeError):
                         args_data = {"raw": args_str}
+                    if call_id:
+                        tool_names[call_id] = tool_name
                     logger.info("[ToolCall] agent=%s tool=%s", event.item.agent.name, tool_name)
                     await event_queue.enqueue_event(
                         TaskStatusUpdateEvent(
@@ -1196,8 +1202,12 @@ class GameNewsAgent:
 
                 elif event.name == "tool_output" and isinstance(event.item, ToolCallOutputItem):
                     raw = event.item.raw_item
-                    call_id = getattr(raw, "call_id", None) or ""
-                    tool_name = getattr(raw, "name", None) or "unknown_tool"
+                    # FunctionCallOutput is a TypedDict — use dict access, not getattr
+                    if isinstance(raw, dict):
+                        call_id = raw.get("call_id") or ""
+                    else:
+                        call_id = getattr(raw, "call_id", None) or ""
+                    tool_name = tool_names.get(call_id, "unknown_tool")
                     output = event.item.output
                     if isinstance(output, str):
                         try:
@@ -1229,17 +1239,44 @@ class GameNewsAgent:
                     )
 
                 elif event.name == "handoff_requested" and isinstance(event.item, HandoffCallItem):
+                    raw = event.item.raw_item
+                    call_id = getattr(raw, "call_id", None) or ""
+                    handoff_name = getattr(raw, "name", None) or "handoff"
                     logger.info(
                         "[Handoff] from=%s to=%s",
                         event.item.agent.name,
-                        getattr(event.item.raw_item, "name", "?"),
+                        handoff_name,
                     )
 
                 elif event.name == "handoff_output" and isinstance(event.item, HandoffOutputItem):
+                    # Emit a tool-call-result for the handoff so the UI stops spinning
+                    source = event.item.source_agent.name
+                    target = event.item.target_agent.name
+                    # Find the handoff's call_id from tool_names
+                    handoff_call_id = ""
+                    handoff_tool_name = ""
+                    for cid, tname in tool_names.items():
+                        if tname.startswith("transfer_to_"):
+                            handoff_call_id = cid
+                            handoff_tool_name = tname
                     logger.info(
                         "[HandoffResult] source=%s target=%s",
-                        event.item.source_agent.name,
-                        event.item.target_agent.name,
+                        source, target,
                     )
+                    if handoff_call_id:
+                        await event_queue.enqueue_event(
+                            TaskStatusUpdateEvent(
+                                task_id=tid,
+                                context_id=context_id,
+                                status=TaskStatus(state=TaskState.working, message=Message(
+                                    role=Role.agent,
+                                    message_id=uuid4().hex,
+                                    parts=[Part(root=TextPart(text=f"Handed off to {target}"))],
+                                    metadata={"type": "tool-call-result", "toolCallId": handoff_call_id, "toolCallName": handoff_tool_name},
+                                    task_id=tid, context_id=context_id,
+                                )),
+                                final=False,
+                            ),
+                        )
 
         return (result.final_output or "").strip()

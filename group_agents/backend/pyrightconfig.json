@@ -1,0 +1,9 @@
+{
+  "venvPath": ".venv",
+  "executionEnvironments": [
+    {
+      "root": "group_chat_backend",
+      "extraPaths": []
+    }
+  ]
+}

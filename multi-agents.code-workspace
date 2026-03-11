@@ -37,6 +37,10 @@
 			"path": "game_news_agent"
 		},
 		{
+			"name": "group_agents",
+			"path": "group_agents"
+		},
+		{
 			"name": "starwars_agent",
 			"path": "starwars_agent"
 		},

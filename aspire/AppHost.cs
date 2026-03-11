@@ -395,6 +395,32 @@ else
 }
 
 // Frontend - always runs natively with npm
+
+// Group Chat Backend (Python FastAPI)
+IResourceBuilder<IResourceWithEndpoints> groupChatBackend;
+if (useDocker)
+{
+    groupChatBackend = builder
+        .AddDockerfile("group-chat-backend", "..", "group_agents/backend/Dockerfile")
+        .WithHttpEndpoint(port: 8050, targetPort: 8050, name: "http")
+        .WithEnvironment("HOST", "0.0.0.0")
+        .WithEnvironment("OPENAI_API_KEY", openaiApiKey);
+}
+else
+{
+    groupChatBackend = builder
+        .AddUvicornApp("group-chat-backend", "../group_agents/backend", "group_chat_backend.app:app")
+        .WithUv()
+        .WithEnvironment("HOST", "0.0.0.0")
+        .WithEnvironment("OPENAI_API_KEY", openaiApiKey);
+}
+
+// Group Chat Blazor Frontend
+var groupChatFrontend = builder
+    .AddProject("group-chat-frontend", "../group_agents/frontend/GroupChatUI/GroupChatUI.csproj", launchProfileName: "https")
+    .WithEnvironment("BackendUrl", groupChatBackend.GetEndpoint("http"));
+
+// Existing main frontend
 var frontend = builder
     .AddJavaScriptApp("frontend", "../frontend/agent-ui")
     .WithNpm()

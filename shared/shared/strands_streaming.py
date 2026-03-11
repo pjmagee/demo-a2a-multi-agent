@@ -204,6 +204,39 @@ async def stream_strands_agent(
                     ),
                 )
 
+        # Tool results — ToolResultMessageEvent carries message.content
+        # with [{"toolResult": {"toolUseId": ..., "content": [...], "status": ...}}, ...]
+        tool_result_msg = event.get("message")
+        if (
+            isinstance(tool_result_msg, dict)
+            and tool_result_msg.get("role") == "user"
+        ):
+            for item in tool_result_msg.get("content", []):
+                if not isinstance(item, dict):
+                    continue
+                tr = item.get("toolResult")
+                if not isinstance(tr, dict):
+                    continue
+                result_msg = _make_tool_result_message(
+                    tr,
+                    context_id=context_id,
+                    task_id=task_id,
+                    tool_names=tool_names,
+                )
+                logger.info(
+                    "Strands tool result: %s (call_id=%s)",
+                    tool_names.get(tr.get("toolUseId", ""), "?"),
+                    tr.get("toolUseId", "?"),
+                )
+                await event_queue.enqueue_event(
+                    _status_update(
+                        task_id=task_id,
+                        context_id=context_id,
+                        state=TaskState.working,
+                        message=result_msg,
+                    ),
+                )
+
     # Emit final text message — the A2A EventConsumer treats Message as
     # a terminal event, so nothing after this will be consumed.
     final_text = accumulated_text.strip() or "[no response]"
